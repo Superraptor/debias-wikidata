@@ -48,7 +48,7 @@ class ClassProfileDetector(Detector):
     def __init__(
         self,
         frequency_threshold: float = 0.8,
-        min_population_size: int = 20,
+        min_population_size: int = 5,
     ) -> None:
         """
         Args:

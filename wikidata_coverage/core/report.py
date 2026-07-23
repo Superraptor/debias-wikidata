@@ -83,19 +83,34 @@ class CoverageReport:
             (higher score = more or more severe issues).
         """
         entity_scores = self.by_entity()
-        return sorted(
-            (
+        res = []
+        for qid, es in entity_scores.items():
+            suggestions = []
+            quickstatements = []
+            suggested_props = []
+
+            for f in es.findings:
+                if f.property_id and f.property_id not in suggested_props:
+                    suggested_props.append(f.property_id)
+                if f.suggested_fix:
+                    if f.suggested_fix.description and f.suggested_fix.description not in suggestions:
+                        suggestions.append(f.suggested_fix.description)
+                    if f.suggested_fix.quickstatements and f.suggested_fix.quickstatements not in quickstatements:
+                        quickstatements.append(f.suggested_fix.quickstatements)
+
+            res.append(
                 {
                     "entity_id": qid,
                     "entity_label": es.label,
                     "score": es.score,
                     "n_findings": len(es.findings),
+                    "suggested_properties": suggested_props,
+                    "suggestions": suggestions,
+                    "quickstatements": quickstatements,
                 }
-                for qid, es in entity_scores.items()
-            ),
-            key=lambda x: x["score"],
-            reverse=True,
-        )[:n]
+            )
+
+        return sorted(res, key=lambda x: x["score"], reverse=True)[:n]
 
     def summary(self) -> dict[str, Any]:
         entity_scores = self.by_entity()

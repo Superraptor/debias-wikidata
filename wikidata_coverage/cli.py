@@ -499,21 +499,45 @@ def _emit_coverage(report: CoverageReport, out_path: str | None) -> None:
 
     if summary["worst_entities"]:
         worst_table = Table(
-            title="Worst Entities",
+            title="Worst Entities (Coverage & Profile Disparities)",
             caption="Ranked by cumulative severity score (sum of finding severities: Critical=1.0, High=0.85, Med=0.6, Low=0.3, Info=0.1)",
         )
         worst_table.add_column("Entity ID")
         worst_table.add_column("Label")
         worst_table.add_column("Score")
         worst_table.add_column("# Findings")
+        worst_table.add_column("Suggested Properties to Add/Fix")
+
         for row in summary["worst_entities"]:
+            props_str = ", ".join(row.get("suggested_properties", [])) or "—"
             worst_table.add_row(
                 row["entity_id"],
                 row.get("entity_label", row["entity_id"]),
                 str(row["score"]),
                 str(row["n_findings"]),
+                props_str,
             )
         console.print(worst_table)
+
+        has_suggestions = any(row.get("suggestions") for row in summary["worst_entities"])
+        if has_suggestions:
+            sugg_table = Table(
+                title="Class-Profile Suggestions & Statements to Add/Fix for Worst Entities",
+                caption="Actionable recommendations derived from peer class profiles and property constraints",
+            )
+            sugg_table.add_column("Entity")
+            sugg_table.add_column("Suggested Action / Statement to Fix")
+            sugg_table.add_column("QuickStatements Snippet")
+
+            for row in summary["worst_entities"]:
+                ent_name = f"{row.get('entity_label', row['entity_id'])} ({row['entity_id']})"
+                suggs = row.get("suggestions", [])
+                qs_list = row.get("quickstatements", [])
+                if suggs:
+                    for s, q in zip(suggs, qs_list + ["—"] * max(0, len(suggs) - len(qs_list))):
+                        sugg_table.add_row(ent_name, s, q)
+
+            console.print(sugg_table)
 
 
 def _emit_bias(report: BiasReport, out_path: str | None, axis: str | None) -> None:
