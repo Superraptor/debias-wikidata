@@ -51,10 +51,12 @@ class Finding:
     property_id: str | None = None
     evidence: dict[str, Any] = field(default_factory=dict)
     suggested_fix: SuggestedFix | None = None
+    entity_label: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
             "entity_id": self.entity_id,
+            "entity_label": self.entity_label,
             "kind": self.kind.value if isinstance(self.kind, FindingKind) else self.kind,
             "detector": self.detector,
             "message": self.message,

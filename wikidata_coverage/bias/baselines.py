@@ -248,7 +248,7 @@ def gender_population_shares(
 
 
 # ---------------------------------------------------------------------------
-# Urban / rural world split — P6897 (urban population %) × P1082
+# Urban / rural world split — P6343 (urban population) × P1082
 # ---------------------------------------------------------------------------
 
 # QIDs for urban settlement types (P31 values)
@@ -285,7 +285,7 @@ def urban_rural_world_shares(
     """Returns ``{"urban": share, "rural": share}`` from Wikidata country data.
 
     Computes a population-weighted average urban share from countries that
-    have both P1082 (population) and P6897 (urban population %). Falls back
+    have both P1082 (population) and P6343 (urban population). Falls back
     to the UN World Urbanization Prospects estimate (~57 % urban) if the
     query returns insufficient data.
     """
@@ -296,11 +296,12 @@ def urban_rural_world_shares(
     _UN_FALLBACK = {"urban": 0.57, "rural": 0.43}
 
     query = """
-    SELECT ?pop ?urbanPct WHERE {
+    SELECT ?country (MAX(?pop) AS ?maxPop) (MAX(?urbanPop) AS ?maxUrban) WHERE {
       ?country wdt:P31 wd:Q6256 ;
                wdt:P1082 ?pop .
-      OPTIONAL { ?country wdt:P6897 ?urbanPct }
+      OPTIONAL { ?country wdt:P6343 ?urbanPop }
     }
+    GROUP BY ?country
     """
 
     try:
@@ -314,14 +315,19 @@ def urban_rural_world_shares(
     urban_pop = 0.0
     for row in rows:
         try:
-            pop = float(row.get("pop", 0))
-            pct_str = row.get("urbanPct")
-            if pct_str is not None:
-                pct = float(pct_str)
-                # P6897 may be stored as 0–100 or 0–1; normalise.
-                if pct > 1.0:
-                    pct /= 100.0
-                urban_pop += pop * pct
+            pop = float(row.get("maxPop") or row.get("pop") or 0)
+            val_str = row.get("maxUrban") or row.get("urbanPop")
+            if val_str is not None and pop > 0:
+                val = float(val_str)
+                if val <= 0:
+                    continue
+                if val <= 1.0:
+                    urban = pop * val
+                elif val <= 100.0 and val > pop:
+                    urban = pop * (val / 100.0)
+                else:
+                    urban = min(val, pop)
+                urban_pop += urban
                 total_pop += pop
         except (ValueError, TypeError):
             continue

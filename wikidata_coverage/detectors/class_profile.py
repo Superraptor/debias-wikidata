@@ -103,6 +103,7 @@ class ClassProfileDetector(Detector):
                     findings.append(
                         Finding(
                             entity_id=entity.id,
+                            entity_label=entity.label(),
                             kind=FindingKind.MISSING_STATEMENT,
                             detector=self.name,
                             property_id=prop_id,

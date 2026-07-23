@@ -58,7 +58,7 @@ Metrics funnel into a `BiasReport` with JSON, CSV, and chart-ready exports.
 | `DemographicBalanceDetector` | What fraction of the population holds each value of an arbitrary categorical property? | any PID | User-supplied |
 | `LinguisticCoverageDetector` | What fraction of entities have labels, descriptions, or aliases in each language? | `linguistic_label`, `linguistic_description`, `linguistic_alias` | Live P1098 (speaker count) via Wikidata SPARQL |
 | `SexualOrientationDetector` | What is the distribution of recorded P91 (sexual orientation) values? | `sexual_orientation` | Exploratory (no default baseline; optional study override) |
-| `RuralUrbanDetector` | What fraction of entities are born in urban vs. rural places (P19)? | `rural_urban` | Live P6897/P1082 urbanization split via Wikidata SPARQL |
+| `RuralUrbanDetector` | What fraction of entities are born in urban vs. rural places (P19)? | `rural_urban` | Live P6343/P1082 urbanization split via Wikidata SPARQL |
 | `EthnicityBalanceDetector` | What is the distribution of recorded P172 (ethnic group) values? | `ethnicity` | Exploratory (optional cohort demographic override) |
 | `IntersectionalityDetector` | What is the representation across paired axes (e.g. nationality × gender, language × gender)? | `nationality_and_gender`, `language_and_gender`, `occupation_and_gender`, `ethnicity_and_gender` | Multiplicative $P(A \cap B) = P(A) \times P(B)$ from marginals, or explicit joint table |
 | `GroupMeanDetector` (base) | Does some *continuous* measure (e.g. number of language editions) differ across groups? | configurable | Population mean comparison |

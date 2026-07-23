@@ -480,12 +480,21 @@ def _emit_coverage(report: CoverageReport, out_path: str | None) -> None:
     console.print(table)
 
     if summary["worst_entities"]:
-        worst_table = Table(title="Worst Entities")
-        worst_table.add_column("Entity")
+        worst_table = Table(
+            title="Worst Entities",
+            caption="Ranked by cumulative severity score (sum of finding severities: Critical=1.0, High=0.85, Med=0.6, Low=0.3, Info=0.1)",
+        )
+        worst_table.add_column("Entity ID")
+        worst_table.add_column("Label")
         worst_table.add_column("Score")
         worst_table.add_column("# Findings")
         for row in summary["worst_entities"]:
-            worst_table.add_row(row["entity_id"], str(row["score"]), str(row["n_findings"]))
+            worst_table.add_row(
+                row["entity_id"],
+                row.get("entity_label", row["entity_id"]),
+                str(row["score"]),
+                str(row["n_findings"]),
+            )
         console.print(worst_table)
 
 

@@ -101,7 +101,7 @@ def test_rural_urban_detector_with_mock_sparql():
     # Mock return for urban_rural_world_shares and classify_places_by_type
     mock_sparql.query.side_effect = [
         # urban_rural_world_shares return
-        [{"pop": 1000, "urbanPct": 60}],
+        [{"maxPop": 1000, "maxUrban": 600}],
         # classify_places_by_type return
         [
             {"place": "http://www.wikidata.org/entity/Q100", "placeType": "http://www.wikidata.org/entity/Q515"},  # city (urban)

@@ -83,6 +83,7 @@ class ExistenceDetector(Detector):
             findings.append(
                 Finding(
                     entity_id=f"<missing:{self.source.name}:{item.external_id}>",
+                    entity_label=item.label,
                     kind=FindingKind.MISSING_ENTITY,
                     detector=self.name,
                     property_id=self.source.matching_property,

@@ -39,7 +39,6 @@ class ActionApiClient:
     ) -> dict[str, dict[str, Any]]:
         """Fetches full entity JSON for a list of QIDs/PIDs, batching to
         respect the API's per-request id limit. Returns {id: entity_json}."""
-        languages = languages or ["en"]
         out: dict[str, dict[str, Any]] = {}
 
         for start in range(0, len(ids), BATCH_SIZE):
@@ -47,9 +46,10 @@ class ActionApiClient:
             params = {
                 "action": "wbgetentities",
                 "ids": "|".join(batch),
-                "languages": "|".join(languages),
                 "format": "json",
             }
+            if languages:
+                params["languages"] = "|".join(languages)
             resp = self.session.get(self.endpoint, params=params, timeout=30)
             resp.raise_for_status()
             data = resp.json()

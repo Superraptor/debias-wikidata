@@ -45,8 +45,8 @@ class RuralUrbanDetector(BiasDetector):
     """Measures whether Wikidata biographical coverage skews toward urban
     birthplaces relative to the world's urban/rural population split.
 
-    The expected baseline is fetched from Wikidata at initialization (P6897
-    urban population %, weighted by P1082 across countries) and falls back to
+    The expected baseline is fetched from Wikidata at initialization (P6343
+    urban population, weighted by P1082 across countries) and falls back to
     the UN World Urbanization Prospects estimate (~57 % urban) if SPARQL data
     is insufficient.
     """

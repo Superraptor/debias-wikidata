@@ -16,7 +16,17 @@ from wikidata_coverage.core.finding import Finding
 @dataclass
 class EntityScore:
     entity_id: str
+    entity_label: str | None = None
     findings: list[Finding] = field(default_factory=list)
+
+    @property
+    def label(self) -> str:
+        if self.entity_label:
+            return self.entity_label
+        for f in self.findings:
+            if f.entity_label:
+                return f.entity_label
+        return self.entity_id
 
     @property
     def score(self) -> float:
@@ -42,9 +52,15 @@ class CoverageReport:
 
     def by_entity(self) -> dict[str, EntityScore]:
         grouped: dict[str, list[Finding]] = defaultdict(list)
+        labels: dict[str, str | None] = {}
         for f in self.findings:
             grouped[f.entity_id].append(f)
-        return {qid: EntityScore(qid, fs) for qid, fs in grouped.items()}
+            if f.entity_label and f.entity_id not in labels:
+                labels[f.entity_id] = f.entity_label
+        return {
+            qid: EntityScore(qid, entity_label=labels.get(qid), findings=fs)
+            for qid, fs in grouped.items()
+        }
 
     def by_kind(self) -> dict[str, list[Finding]]:
         grouped: dict[str, list[Finding]] = defaultdict(list)
@@ -59,6 +75,28 @@ class CoverageReport:
             grouped[f.detector].append(f)
         return grouped
 
+    def worst_entities(self, n: int = 10) -> list[dict[str, Any]]:
+        """Return top N entities sorted descending by cumulative issue severity score.
+
+        Ranking Criteria:
+            Entities are scored by summing the severity of all findings associated with them
+            (higher score = more or more severe issues).
+        """
+        entity_scores = self.by_entity()
+        return sorted(
+            (
+                {
+                    "entity_id": qid,
+                    "entity_label": es.label,
+                    "score": es.score,
+                    "n_findings": len(es.findings),
+                }
+                for qid, es in entity_scores.items()
+            ),
+            key=lambda x: x["score"],
+            reverse=True,
+        )[:n]
+
     def summary(self) -> dict[str, Any]:
         entity_scores = self.by_entity()
         return {
@@ -66,14 +104,11 @@ class CoverageReport:
             "entities_with_findings": len(entity_scores),
             "findings_by_kind": {k: len(v) for k, v in self.by_kind().items()},
             "findings_by_detector": {k: len(v) for k, v in self.by_detector().items()},
-            "worst_entities": sorted(
-                (
-                    {"entity_id": qid, "score": es.score, "n_findings": len(es.findings)}
-                    for qid, es in entity_scores.items()
-                ),
-                key=lambda x: x["score"],
-                reverse=True,
-            )[:10],
+            "scoring_criteria": (
+                "Cumulative finding severity score (sum of individual finding severities per entity; "
+                "higher score indicates worse coverage or constraint violations)"
+            ),
+            "worst_entities": self.worst_entities(10),
         }
 
     def to_json(self, indent: int = 2) -> str:
