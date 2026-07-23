@@ -117,6 +117,31 @@ wikidata_coverage/
 pip install -e ".[dev]"
 ```
 
+### Spatial Data Setup (`gadm_410-levels.zip` for Rural/Urban Detection)
+
+The **`RuralUrbanDetector`** uses coordinate point lookups against official spatial administrative boundaries (**GADM 4.1.0**) and Global Human Settlement Layer (**GHSL**) degree of urbanization grid classifications.
+
+#### 1. Downloading `gadm_410-levels.zip`
+- Download **`gadm_410-levels.zip`** from the official [GADM 4.1 Data Portal](https://gadm.org/data.html) (or direct mirror for global GeoPackage levels `gadm_410-levels.gpkg`).
+
+#### 2. Installing into `data/` Subfolder
+- Place the downloaded file directly into the **`data/`** directory at the root of the repository workspace:
+  ```text
+  wikidata-coverage/
+  ├── data/
+  │   ├── gadm_410-levels.zip          # (or extracted gadm_410-levels.gpkg)
+  │   └── GHS_COUNTRY_STATS_MT_GLOBE_R2024A.zip
+  ├── wikidata_coverage/
+  └── README.md
+  ```
+
+#### 3. Automatic Extraction & Execution
+- When you run `wdcoverage bias rural-urban`, `wikidata-coverage` automatically locates `data/gadm_410-levels.zip`, extracts `gadm_410-levels.gpkg` if necessary, and queries spatial geometries using `geopandas` and `shapely`.
+- If a birthplace coordinate falls into an urban centre (Class 3) or urban cluster (Class 2), it is classified as **`urban`**; rural grid cells (Class 1) are classified as **`rural`**.
+
+#### 4. Persistent Disk Caching
+- All spatial lookups and GADM administrative queries are automatically saved to `data/cache_gadm_lookups.json` and `data/cache_place_coordinates.json`. Subsequent runs load instantly from disk cache without re-querying spatial geometries or network APIs.
+
 ---
 
 ## Quick start — coverage
@@ -219,8 +244,9 @@ The `wikidata_coverage.bias.baselines` module lazily loads population baselines 
 1. **`language_speaker_shares(sparql, top_n=50)`**: Queries P1098 (number of speakers) for ISO 639-1 languages.
 2. **`country_population_shares(sparql)`**: Queries P1082 (population) for sovereign states (`Q6256`).
 3. **`gender_population_shares(sparql, country_qid=None)`**: Queries P1539 (female) and P1540 (male) population counts globally or per country.
-4. **`urban_rural_world_shares(sparql)`**: Queries P6897 (urban population %) weighted by P1082.
+4. **`urban_rural_world_shares(sparql)`**: Queries P6343 (urban population count/%) weighted by P1082 across countries or GHS dataset statistics.
 5. **`classify_places_by_type(sparql, place_qids)`**: Classifies a batch of birth place QIDs (P19) into `urban` vs `rural` based on their P31 instance-of values.
+6. **Spatial Setup**: Download `gadm_410-levels.zip` from GADM and extract to `data/gadm/` for administrative region boundary lookups.
 
 ---
 
