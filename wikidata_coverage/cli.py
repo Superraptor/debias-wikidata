@@ -22,7 +22,7 @@ from rich.table import Table
 
 from wikidata_coverage.access.api import ActionApiClient
 from wikidata_coverage.access.sparql import SparqlClient
-from wikidata_coverage.bias.demographic import DemographicBalanceDetector
+from wikidata_coverage.bias.demographic import DemographicBalanceDetector, PROPERTY_AXIS_NAMES
 from wikidata_coverage.bias.ethnicity import EthnicityBalanceDetector
 from wikidata_coverage.bias.gender import GenderBalanceDetector
 from wikidata_coverage.bias.geographic import GeographicDisparityDetector
@@ -66,6 +66,7 @@ def _fetch_class_entities(
     occupation: str | None = None,
     ethnicity: str | None = None,
     custom_filters: tuple[str, ...] = (),
+    required_properties: list[str] | None = None,
 ) -> list[Entity]:
     property_filters: dict[str, str] = {}
     if nationality:
@@ -82,7 +83,12 @@ def _fetch_class_entities(
     sparql = SparqlClient()
     filter_str = f" with filters {property_filters}" if property_filters else ""
     console.print(f"[bold]Fetching up to {limit} items of class {class_qid}{filter_str}...[/bold]")
-    qids = sparql.qids_of_class(class_qid, property_filters=property_filters, limit=limit)
+    qids = sparql.qids_of_class(
+        class_qid,
+        property_filters=property_filters,
+        required_properties=required_properties,
+        limit=limit,
+    )
     console.print(f"Found {len(qids)} items. Fetching entity data...")
     return _fetch_entities(qids)
 
@@ -210,13 +216,13 @@ def bias_geographic(
 
 @bias.command(name="demographic")
 @click.option("--class", "class_qid", required=True, help="QID of the class/scope, e.g. Q5 (human)")
-@click.option("--property", "property_id", required=True, help="PID to group by, e.g. P106 (occupation)")
+@click.option("--property", "properties", multiple=True, help="PID(s) to group by, e.g. P27, P172, P106 (defaults to nationality, ethnicity, occupation)")
 @click.option("--limit", default=500, show_default=True, help="Max entities to sample")
 @scope_filter_options
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
 def bias_demographic(
     class_qid: str,
-    property_id: str,
+    properties: tuple[str, ...],
     limit: int,
     nationality: str | None,
     occupation: str | None,
@@ -224,18 +230,24 @@ def bias_demographic(
     custom_filters: tuple[str, ...],
     out_path: str | None,
 ) -> None:
-    """Measure demographic balance for any categorical property."""
+    """Measure demographic balance across categorical properties (nationality P27, ethnicity P172, occupation P106, etc.)."""
     entities = _fetch_class_entities(
         class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
     )
-    detector = DemographicBalanceDetector(property_id=property_id, expected_shares={})
-
-    console.print(f"Running demographic-balance detector (property={property_id})...")
-    metrics = detector.run(entities)
+    props_to_check = list(properties) if properties else ["P27", "P172", "P106"]
 
     report = BiasReport()
-    report.add(metrics)
-    _emit_bias(report, out_path, axis=property_id)
+    for prop_id in props_to_check:
+        axis_name = PROPERTY_AXIS_NAMES.get(prop_id, prop_id)
+        console.print(f"Running demographic-balance detector (property={prop_id} — {axis_name})...")
+        detector = DemographicBalanceDetector(property_id=prop_id, expected_shares={})
+        report.add(detector.run(entities))
+
+    _emit_bias(
+        report,
+        out_path,
+        axis=PROPERTY_AXIS_NAMES.get(props_to_check[0], props_to_check[0]) if len(props_to_check) == 1 else None,
+    )
 
 
 @bias.command(name="linguistic")
@@ -315,7 +327,13 @@ def bias_rural_urban(
 ) -> None:
     """Measure urban vs. rural representation (by birthplace P19) vs. world population split."""
     entities = _fetch_class_entities(
-        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
+        class_qid,
+        limit,
+        nationality=nationality,
+        occupation=occupation,
+        ethnicity=ethnicity,
+        custom_filters=custom_filters,
+        required_properties=[property_id],
     )
     sparql = SparqlClient()
     detector = RuralUrbanDetector(sparql=sparql, property_id=property_id)

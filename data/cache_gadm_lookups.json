@@ -1,0 +1,726 @@
+{
+  "9.2667,-3.0000": {
+    "iso3": "CIV",
+    "country": "Côte d'Ivoire"
+  },
+  "40.4168,-3.7038": {
+    "iso3": "ESP",
+    "country": "Spain"
+  },
+  "42.1200,-7.1500": {
+    "iso3": "ESP",
+    "country": "Spain"
+  },
+  "-22.9375,-43.1839": {
+    "iso3": "BRA",
+    "country": "Brazil",
+    "name": "Rio de Janeiro",
+    "engtype": "Municipality",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "41.0122,28.9760": {
+    "iso3": "TUR",
+    "country": "Turkey",
+    "name": "Fatih",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "51.5072,-0.1275": {
+    "iso3": "GBR",
+    "country": "United Kingdom",
+    "name": "Knightsbridge and Belgravia",
+    "engtype": "",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "30.0444,31.2358": {
+    "iso3": "EGY",
+    "country": "Egypt",
+    "name": "Giza",
+    "engtype": "Subdivision",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "-12.0600,-77.0375": {
+    "iso3": "PER",
+    "country": "Peru",
+    "name": "Lima",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "38.7080,-9.1390": {
+    "iso3": "PRT",
+    "country": "Portugal",
+    "name": "Lisboa",
+    "engtype": "Municipality",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "35.2505,136.9121": {
+    "iso3": "JPN",
+    "country": "Japan",
+    "name": "Nagoya",
+    "engtype": "City",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "48.8755,2.3579": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "Paris, 18e arrondissement",
+    "engtype": "Commune",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "33.6842,-117.7925": {
+    "iso3": "USA",
+    "country": "United States",
+    "name": "Orange",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "42.3603,-71.0578": {
+    "iso3": "USA",
+    "country": "United States",
+    "name": "Middlesex",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "42.9100,-74.4400": {
+    "iso3": "USA",
+    "country": "United States",
+    "name": "Montgomery",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "-32.9575,-60.6394": {
+    "iso3": "ARG",
+    "country": "Argentina",
+    "name": "Rosario",
+    "engtype": "Department",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "53.0167,18.6167": {
+    "iso3": "POL",
+    "country": "Poland",
+    "name": "Toruń (City)",
+    "engtype": "City with powiat rights",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "45.8872,12.2969": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Treviso",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "43.3433,3.2161": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "Béziers",
+    "engtype": "Commune",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "43.6703,-79.3867": {
+    "iso3": "CAN",
+    "country": "Canada",
+    "name": "Toronto",
+    "engtype": "Census Division",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "31.1975,29.8925": {
+    "iso3": "EGY",
+    "country": "Egypt",
+    "name": "Al-Jumruk",
+    "engtype": "Subdivision",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "51.4589,0.1384": {
+    "iso3": "GBR",
+    "country": "United Kingdom",
+    "name": "Falconwood & Welling",
+    "engtype": "",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "51.3722,6.5111": {
+    "iso3": "DEU",
+    "country": "Germany",
+    "name": "Krefeld",
+    "engtype": "Town",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "48.8975,9.1919": {
+    "iso3": "DEU",
+    "country": "Germany",
+    "name": "Ludwigsburg",
+    "engtype": "Town",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "45.7675,4.8350": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "Lyon, 2e arrondissement",
+    "engtype": "Commune",
+    "degurba_class": 1,
+    "classification": "rural"
+  },
+  "45.8103,9.0861": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Como",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "48.8567,2.3522": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "Paris, 2e arrondissement",
+    "engtype": "Commune",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "52.1928,-1.7064": {
+    "iso3": "GBR",
+    "country": "United Kingdom",
+    "name": "Welford-on-Avon",
+    "engtype": "",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "43.4199,-83.9500": {
+    "iso3": "USA",
+    "country": "United States",
+    "name": "Saginaw",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "50.5167,115.0333": {
+    "iso3": "RUS",
+    "country": "Russia",
+    "name": "Aginskiy rayon",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "49.1783,3.1239": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "Villers-Cotterêts",
+    "engtype": "Commune",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "49.4431,1.1025": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "Mont-Saint-Aignan",
+    "engtype": "Commune",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "49.1197,6.1769": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "Montigny-lès-Metz",
+    "engtype": "Commune",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "43.7992,10.9381": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Florence",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "45.8748,8.6334": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Varese",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "33.7586,-118.3458": {
+    "iso3": "USA",
+    "country": "United States",
+    "name": "Los Angeles",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "-29.9027,-71.2520": {
+    "iso3": "CHL",
+    "country": "Chile",
+    "name": "Elqui",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "-37.8000,-73.3833": {
+    "iso3": "CHL",
+    "country": "Chile",
+    "name": "Arauco",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "50.4500,30.5236": {
+    "iso3": "UKR",
+    "country": "Ukraine",
+    "name": "Podil's'kyi",
+    "engtype": "Raion",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "55.7506,37.6175": {
+    "iso3": "RUS",
+    "country": "Russia",
+    "name": "Western",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "51.8062,-0.1932": {
+    "iso3": "GBR",
+    "country": "United Kingdom",
+    "name": "Welwyn West",
+    "engtype": "",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "-32.8706,-70.6175": {
+    "iso3": "CHL",
+    "country": "Chile",
+    "name": "Los Andes",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "-35.9667,-71.6833": {
+    "iso3": "CHL",
+    "country": "Chile",
+    "name": "Linares",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "57.4095,43.1528": {
+    "iso3": "RUS",
+    "country": "Russia",
+    "name": "Sokol’skiy rayon",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "41.9817,44.1124": {
+    "iso3": "GEO",
+    "country": "Georgia",
+    "name": "Gori",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "-33.4375,-70.6500": {
+    "iso3": "CHL",
+    "country": "Chile",
+    "name": "Santiago",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "37.9842,23.7281": {
+    "iso3": "GRC",
+    "country": "Greece",
+    "name": "Attica",
+    "engtype": "Region",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "59.9500,30.3167": {
+    "iso3": "RUS",
+    "country": "Russia",
+    "name": "Sankt-Peterburg gorsovet",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "40.5908,23.7942": {
+    "iso3": "GRC",
+    "country": "Greece",
+    "name": "Central Macedonia",
+    "engtype": "Region",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "40.7156,-74.3647": {
+    "iso3": "USA",
+    "country": "United States",
+    "name": "Morris",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "51.4898,-0.0905": {
+    "iso3": "GBR",
+    "country": "United Kingdom",
+    "name": "Vintry",
+    "engtype": "",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "54.9722,25.9750": {
+    "iso3": "BLR",
+    "country": "Belarus",
+    "name": "Astravyets",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "-29.1000,26.2167": {
+    "iso3": "ZAF",
+    "country": "South Africa",
+    "name": "17",
+    "engtype": "Ward",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "50.0875,14.4214": {
+    "iso3": "CZE",
+    "country": "Czechia",
+    "name": "Praha 5",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "-34.5997,-58.3819": {
+    "iso3": "ARG",
+    "country": "Argentina",
+    "name": "Distrito Federal",
+    "engtype": "Federal District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "37.9500,23.7500": {
+    "iso3": "GRC",
+    "country": "Greece",
+    "name": "Attica",
+    "engtype": "Region",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "52.6631,4.7853": {
+    "iso3": "NLD",
+    "country": "Netherlands",
+    "name": "Alkmaar",
+    "engtype": "Municipality",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "59.2278,11.0433": {
+    "iso3": "NOR",
+    "country": "Norway",
+    "name": "Borge",
+    "engtype": "Municipality",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "52.3803,4.6406": {
+    "iso3": "NLD",
+    "country": "Netherlands",
+    "name": "Bloemendaal",
+    "engtype": "Municipality",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "52.8092,-0.6306": {
+    "iso3": "GBR",
+    "country": "United Kingdom",
+    "name": "Isaac Newton",
+    "engtype": "",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "48.3986,9.9911": {
+    "iso3": "DEU",
+    "country": "Germany",
+    "name": "Neu-Ulm",
+    "engtype": "Town",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "38.7504,-9.2582": {
+    "iso3": "PRT",
+    "country": "Portugal",
+    "name": "Oeiras",
+    "engtype": "Municipality",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "54.3500,18.6667": {
+    "iso3": "POL",
+    "country": "Poland",
+    "name": "Gdańsk (City)",
+    "engtype": "City with powiat rights",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "43.0747,-89.3842": {
+    "iso3": "USA",
+    "country": "United States",
+    "name": "Dane",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "-35.5667,148.3000": {
+    "iso3": "AUS",
+    "country": "Australia",
+    "name": "Tumut",
+    "engtype": "Shire",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "49.8833,19.5000": {
+    "iso3": "POL",
+    "country": "Poland",
+    "name": "Wadowice",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "55.7836,37.6119": {
+    "iso3": "RUS",
+    "country": "Russia",
+    "name": "Northern",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "21.6425,69.6047": {
+    "iso3": "IND",
+    "country": "India",
+    "name": "Porbandar",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "47.3744,8.5411": {
+    "iso3": "CHE",
+    "country": "Switzerland",
+    "name": "Zürich",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "46.3889,14.1463": {
+    "iso3": "SVN",
+    "country": "Slovenia",
+    "name": "Radovljica",
+    "engtype": "Commune|Municipality",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "52.7128,-2.7633": {
+    "iso3": "GBR",
+    "country": "United Kingdom",
+    "name": "Meole",
+    "engtype": "",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "56.6180,14.2020": {
+    "iso3": "SWE",
+    "country": "Sweden",
+    "name": "Älmhult",
+    "engtype": "Municipality",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "25.4500,81.8500": {
+    "iso3": "IND",
+    "country": "India",
+    "name": "Allahabad",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "41.8931,12.4828": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Roma",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "46.1069,14.1451": {
+    "iso3": "SVN",
+    "country": "Slovenia",
+    "name": "Gorenja Vas-Poljane",
+    "engtype": "Commune|Municipality",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "44.8049,11.7387": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Ferrara",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "23.7850,72.6400": {
+    "iso3": "IND",
+    "country": "India",
+    "name": "Mahesana",
+    "engtype": "District",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "45.4669,9.1900": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Milano",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "43.7714,11.2542": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Florence",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "33.6678,-93.5922": {
+    "iso3": "USA",
+    "country": "United States",
+    "name": "Hempstead",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "47.3231,5.0419": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "Dijon",
+    "engtype": "Commune",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "45.3936,5.2606": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "La Côte-Saint-André",
+    "engtype": "Commune",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "43.3853,-1.6678": {
+    "iso3": "FRA",
+    "country": "France",
+    "name": "Ciboure",
+    "engtype": "Commune",
+    "degurba_class": 1,
+    "classification": "rural"
+  },
+  "18.3906,-77.6275": {
+    "iso3": "JAM",
+    "country": "Jamaica",
+    "name": "",
+    "engtype": "",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "53.4072,-2.9917": {
+    "iso3": "GBR",
+    "country": "United Kingdom",
+    "name": "Kirkdale",
+    "engtype": "",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "50.7000,6.6500": {
+    "iso3": "DEU",
+    "country": "Germany",
+    "name": "Vettweiß",
+    "engtype": "Town",
+    "degurba_class": 3,
+    "classification": "urban"
+  },
+  "40.8358,14.2486": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Napoli",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "43.5500,10.3167": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Livorno",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "40.2954,-73.9899": {
+    "iso3": "USA",
+    "country": "United States",
+    "name": "Monmouth",
+    "engtype": "County",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "45.4500,8.6200": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Novara",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "40.7267,8.5592": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Sassari",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "44.3931,8.4982": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Savona",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  },
+  "45.0792,7.6761": {
+    "iso3": "ITA",
+    "country": "Italy",
+    "name": "Torino",
+    "engtype": "Province",
+    "degurba_class": 2,
+    "classification": "urban"
+  }
+}

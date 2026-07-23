@@ -98,16 +98,14 @@ def test_linguistic_coverage_detector_with_mock_sparql():
 
 def test_rural_urban_detector_with_mock_sparql():
     mock_sparql = MagicMock()
-    # Mock return for urban_rural_world_shares and classify_places_by_type
-    mock_sparql.query.side_effect = [
-        # urban_rural_world_shares return
-        [{"maxPop": 1000, "maxUrban": 600}],
-        # classify_places_by_type return
-        [
-            {"place": "http://www.wikidata.org/entity/Q100", "placeType": "http://www.wikidata.org/entity/Q515"},  # city (urban)
-            {"place": "http://www.wikidata.org/entity/Q200", "placeType": "http://www.wikidata.org/entity/Q532"},  # village (rural)
-        ],
+    mock_sparql.query.return_value = [
+        {"place": "http://www.wikidata.org/entity/Q100", "placeType": "http://www.wikidata.org/entity/Q515"},  # city (urban)
+        {"place": "http://www.wikidata.org/entity/Q200", "placeType": "http://www.wikidata.org/entity/Q532"},  # village (rural)
     ]
+    mock_sparql.place_coordinates.return_value = {
+        "Q100": {"lat": 40.4168, "lon": -3.7038, "country_qid": "Q29999"},
+        "Q200": {"lat": 42.12, "lon": -7.15, "country_qid": "Q29999"},
+    }
 
     entities = [
         make_test_entity("Q1", p19_qid="Q100"),

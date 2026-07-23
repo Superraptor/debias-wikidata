@@ -56,6 +56,7 @@ class SparqlClient:
         *,
         via_subclass: bool = True,
         property_filters: dict[str, str] | None = None,
+        required_properties: list[str] | None = None,
         limit: int | None = None,
     ) -> list[str]:
         """All items with `wdt:P31/wdt:P279*` (instance of, transitively via
@@ -68,6 +69,10 @@ class SparqlClient:
                 val_expr = val if val.startswith("wd:") else f"wd:{val}"
                 prop_expr = prop if prop.startswith("wdt:") or prop.startswith("p:") else f"wdt:{prop}"
                 filter_lines.append(f"  ?item {prop_expr} {val_expr} .")
+        if required_properties:
+            for prop in required_properties:
+                prop_expr = prop if prop.startswith("wdt:") or prop.startswith("p:") else f"wdt:{prop}"
+                filter_lines.append(f"  ?item {prop_expr} ?req_{prop} .")
         filter_clause = "\n".join(filter_lines)
 
         limit_clause = f"LIMIT {limit}" if limit else ""
@@ -114,3 +119,60 @@ class SparqlClient:
         """
         rows = self.query(query)
         return [row["item"].rsplit("/", 1)[-1] for row in rows]
+
+    def place_coordinates(
+        self, place_qids: list[str], force_refresh: bool = False
+    ) -> dict[str, dict[str, Any]]:
+        """Fetch coordinates (P625 lat/lon) and country (P17) for a batch of place QIDs with disk caching."""
+        if not place_qids:
+            return {}
+
+        import re
+        from wikidata_coverage.access.cache import get_cached_json, save_cached_json
+        cache_key = "cache_place_coordinates.json"
+        cached: dict[str, Any] = get_cached_json(cache_key) or {}
+
+        to_query = [q for q in place_qids if q not in cached or force_refresh]
+        if not to_query:
+            return {q: cached[q] for q in place_qids if q in cached}
+
+        for start in range(0, len(to_query), 50):
+            batch = to_query[start : start + 50]
+            values_clause = " ".join(f"wd:{qid}" for qid in batch)
+            query = f"""
+            SELECT ?place ?lat ?lon ?wkt ?country WHERE {{
+              VALUES ?place {{ {values_clause} }}
+              OPTIONAL {{
+                ?place p:P625/psv:P625 ?locNode .
+                ?locNode wikibase:geoLatitude ?lat ;
+                         wikibase:geoLongitude ?lon .
+              }}
+              OPTIONAL {{ ?place wdt:P625 ?wkt . }}
+              OPTIONAL {{ ?place wdt:P17 ?country . }}
+            }}
+            """
+            try:
+                rows = self.query(query)
+                for r in rows:
+                    p_qid = r.get("place", "").rsplit("/", 1)[-1]
+                    country_qid = r.get("country", "").rsplit("/", 1)[-1] if r.get("country") else None
+                    lat_val = float(r["lat"]) if "lat" in r else None
+                    lon_val = float(r["lon"]) if "lon" in r else None
+
+                    if (lat_val is None or lon_val is None) and "wkt" in r:
+                        match = re.search(r"Point\(\s*([-\d.]+)\s+([-\d.]+)\s*\)", r["wkt"])
+                        if match:
+                            lon_val = float(match.group(1))
+                            lat_val = float(match.group(2))
+
+                    if p_qid:
+                        cached[p_qid] = {
+                            "lat": lat_val,
+                            "lon": lon_val,
+                            "country_qid": country_qid,
+                        }
+            except Exception as exc:
+                pass
+
+        save_cached_json(cache_key, cached)
+        return {q: cached[q] for q in place_qids if q in cached}

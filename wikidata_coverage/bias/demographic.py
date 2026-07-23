@@ -26,13 +26,25 @@ from wikidata_coverage.bias.base import GroupShareDetector
 from wikidata_coverage.core.entity import Entity
 
 
+PROPERTY_AXIS_NAMES: dict[str, str] = {
+    "P27": "nationality (P27)",
+    "P172": "ethnicity (P172)",
+    "P106": "occupation (P106)",
+    "P19": "place_of_birth (P19)",
+    "P20": "place_of_death (P20)",
+    "P140": "religion (P140)",
+    "P91": "sexual_orientation (P91)",
+    "P569": "birth_year (P569)",
+}
+
+
 class DemographicBalanceDetector(GroupShareDetector):
     """Balance check for any single-value categorical property."""
 
     def __init__(
         self,
         property_id: str,
-        expected_shares: dict[str, float],
+        expected_shares: dict[str, float] | None = None,
         axis: str | None = None,
         group_label_fn: Callable[[str], str] | None = None,
         min_group_size: int = 1,
@@ -41,11 +53,8 @@ class DemographicBalanceDetector(GroupShareDetector):
         """
         Args:
             property_id: the PID to group by, e.g. "P106" (occupation).
-            expected_shares: REQUIRED (no silent default) -- group key ->
-                expected population fraction. Forces the caller to make an
-                explicit, reviewable choice about the baseline for
-                whatever axis this is.
-            axis: metric axis label; defaults to the property id.
+            expected_shares: group key -> expected population fraction. Defaults to empty dict.
+            axis: metric axis label; defaults to descriptive label (e.g. nationality (P27)) or property id.
             take_first_value: if an entity has multiple values for
                 property_id, use only the first (avoids double-counting
                 entities across groups, which would break share math).
@@ -57,13 +66,19 @@ class DemographicBalanceDetector(GroupShareDetector):
             if not values:
                 return None
             v = values[0] if take_first_value else values
-            return v.get("id") if isinstance(v, dict) else None
+            if isinstance(v, dict) and "id" in v:
+                return v["id"]
+            if isinstance(v, str) and v.startswith("Q"):
+                return v
+            return None
+
+        default_axis = PROPERTY_AXIS_NAMES.get(property_id, property_id)
 
         super().__init__(
-            axis=axis or property_id,
+            axis=axis or default_axis,
             name=f"demographic_balance_detector[{property_id}]",
             group_fn=group_fn,
             group_label_fn=group_label_fn,
-            expected_shares=expected_shares,
+            expected_shares=expected_shares or {},
             min_group_size=min_group_size,
         )

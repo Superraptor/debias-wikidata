@@ -50,6 +50,9 @@ def _normalize(counts: dict[str, float]) -> dict[str, float]:
 # Language speaker shares — P1098 (number of speakers)
 # ---------------------------------------------------------------------------
 
+from wikidata_coverage.access.cache import get_cached_json, save_cached_json
+
+
 def language_speaker_shares(
     sparql: "SparqlClient",
     top_n: int = 50,
@@ -67,7 +70,7 @@ def language_speaker_shares(
         sparql: live SPARQL client.
         top_n: how many languages (ranked by speaker count) to include.
         min_speakers: languages below this threshold are excluded entirely.
-        force_refresh: bypass the module-level cache and re-query.
+        force_refresh: bypass the module-level and disk caches to re-query.
 
     Returns:
         ``{iso_code: share}`` normalized to sum ≈ 1.0, or ``{}`` on failure.
@@ -75,6 +78,13 @@ def language_speaker_shares(
     global _language_shares
     if _language_shares is not None and not force_refresh:
         return _language_shares
+
+    cache_key = f"cache_language_shares_top{top_n}.json"
+    if not force_refresh:
+        cached = get_cached_json(cache_key)
+        if isinstance(cached, dict) and cached:
+            _language_shares = cached
+            return _language_shares
 
     query = f"""
     SELECT ?langCode (MAX(?speakers) AS ?maxSpeakers) WHERE {{
@@ -105,6 +115,8 @@ def language_speaker_shares(
                 pass
 
     _language_shares = _normalize(raw)
+    if _language_shares:
+        save_cached_json(cache_key, _language_shares)
     logger.info("Loaded speaker shares for %d languages.", len(_language_shares))
     return _language_shares
 
@@ -128,6 +140,13 @@ def country_population_shares(
     global _country_shares
     if _country_shares is not None and not force_refresh:
         return _country_shares
+
+    cache_key = "cache_country_shares.json"
+    if not force_refresh:
+        cached = get_cached_json(cache_key)
+        if isinstance(cached, dict) and cached:
+            _country_shares = cached
+            return _country_shares
 
     query = """
     SELECT ?country (MAX(?pop) AS ?maxPop) WHERE {
@@ -156,6 +175,8 @@ def country_population_shares(
                 pass
 
     _country_shares = _normalize(raw)
+    if _country_shares:
+        save_cached_json(cache_key, _country_shares)
     logger.info("Loaded population shares for %d countries.", len(_country_shares))
     return _country_shares
 
@@ -187,6 +208,13 @@ def gender_population_shares(
     cache_key = country_qid or "world"
     if cache_key in _gender_shares and not force_refresh:
         return _gender_shares[cache_key]
+
+    disk_cache_key = f"cache_gender_shares_{cache_key}.json"
+    if not force_refresh:
+        cached = get_cached_json(disk_cache_key)
+        if isinstance(cached, dict) and cached:
+            _gender_shares[cache_key] = cached
+            return _gender_shares[cache_key]
 
     _FALLBACK = {"Q6581072": 0.5, "Q6581097": 0.5}
 
@@ -244,6 +272,7 @@ def gender_population_shares(
         )
 
     _gender_shares[cache_key] = result
+    save_cached_json(disk_cache_key, result)
     return result
 
 
@@ -292,6 +321,13 @@ def urban_rural_world_shares(
     global _urban_rural_shares
     if _urban_rural_shares is not None and not force_refresh:
         return _urban_rural_shares
+
+    cache_key = "cache_urban_shares.json"
+    if not force_refresh:
+        cached = get_cached_json(cache_key)
+        if isinstance(cached, dict) and cached:
+            _urban_rural_shares = cached
+            return _urban_rural_shares
 
     _UN_FALLBACK = {"urban": 0.57, "rural": 0.43}
 
@@ -343,6 +379,8 @@ def urban_rural_world_shares(
         _urban_rural_shares = {"urban": urban_share, "rural": round(1.0 - urban_share, 4)}
         logger.info("World urban share from Wikidata: %.1f%%", urban_share * 100)
 
+    if _urban_rural_shares:
+        save_cached_json(cache_key, _urban_rural_shares)
     return _urban_rural_shares
 
 

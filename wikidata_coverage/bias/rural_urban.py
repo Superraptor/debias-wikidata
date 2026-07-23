@@ -32,6 +32,8 @@ from typing import TYPE_CHECKING, Iterable
 
 from wikidata_coverage.bias import baselines as _baselines
 from wikidata_coverage.bias.base import BiasDetector, disparity_severity
+from wikidata_coverage.bias.gadm import gadm_lookup_point
+from wikidata_coverage.bias.ghs import ghs_country_urban_shares
 from wikidata_coverage.bias.metrics import DisparityMetric
 from wikidata_coverage.core.entity import Entity
 
@@ -43,12 +45,11 @@ logger = logging.getLogger(__name__)
 
 class RuralUrbanDetector(BiasDetector):
     """Measures whether Wikidata biographical coverage skews toward urban
-    birthplaces relative to the world's urban/rural population split.
+    birthplaces relative to country-level urban/rural population splits.
 
-    The expected baseline is fetched from Wikidata at initialization (P6343
-    urban population, weighted by P1082 across countries) and falls back to
-    the UN World Urbanization Prospects estimate (~57 % urban) if SPARQL data
-    is insufficient.
+    Uses Wikidata coordinate locations (P625), GADM administrative boundaries
+    (data/gadm_410-levels.gpkg), and country-level urbanization statistics from
+    the GHS dataset (data/GHS_COUNTRY_STATS_MT_GLOBE_R2024A.zip).
     """
 
     name = "rural_urban_detector"
@@ -63,26 +64,21 @@ class RuralUrbanDetector(BiasDetector):
         """
         Args:
             sparql: SPARQL client used for:
-              (a) fetching world urban/rural baseline at init, and
+              (a) fetching place coordinates (P625) and country data, and
               (b) classifying place QIDs by P31 type during ``run()``.
             property_id: which place property to classify entities by.
                 * ``P19`` — place of birth (default, most widely populated)
                 * ``P20`` — place of death
                 * ``P551`` — residence
                 * ``P937`` — work location
-            force_refresh: bypass the module-level urban/rural baseline cache.
+            force_refresh: bypass the cached urban/rural baseline data.
         """
         self.sparql = sparql
         self.property_id = property_id
-        self._baseline = _baselines.urban_rural_world_shares(
+        self.force_refresh = force_refresh
+        self._ghs_shares = ghs_country_urban_shares(sparql, force_refresh=force_refresh)
+        self._world_baseline = _baselines.urban_rural_world_shares(
             sparql, force_refresh=force_refresh
-        )
-        logger.info(
-            "RuralUrbanDetector initialized (property=%s). "
-            "World baseline: urban=%.1f%% rural=%.1f%%",
-            property_id,
-            self._baseline.get("urban", 0) * 100,
-            self._baseline.get("rural", 0) * 100,
         )
 
     def run(self, entities: Iterable[Entity]) -> list[DisparityMetric]:
@@ -98,24 +94,72 @@ class RuralUrbanDetector(BiasDetector):
             qid: str | None = None
             if values:
                 v = values[0]
-                qid = v.get("id") if isinstance(v, dict) else None
+                qid = v.get("id") if isinstance(v, dict) else (v if isinstance(v, str) and v.startswith("Q") else None)
             if qid:
                 place_to_entities.setdefault(qid, []).append(e)
             else:
                 no_place.append(e)
 
-        # 2. Classify places via SPARQL.
-        classification = _baselines.classify_places_by_type(
-            self.sparql, list(place_to_entities.keys())
+        place_qids = list(place_to_entities.keys())
+
+        # 2. Fetch coordinates (P625) and P31 types for place QIDs.
+        coords_map = self.sparql.place_coordinates(place_qids, force_refresh=self.force_refresh)
+        type_classification = _baselines.classify_places_by_type(
+            self.sparql, place_qids
         )
 
-        # 3. Group entities into urban / rural / unclassified.
+        # 3. Classify places and determine country ISO3/QID per place.
+        place_classification: dict[str, str] = {}
+        place_country: dict[str, str | None] = {}
+
+        for qid in place_qids:
+            cat = type_classification.get(qid, "unclassified")
+            c_info = coords_map.get(qid, {})
+            lat, lon = c_info.get("lat"), c_info.get("lon")
+            c_qid = c_info.get("country_qid")
+
+            country_code = c_qid
+            if lat is not None and lon is not None:
+                gadm = gadm_lookup_point(lat, lon, force_refresh=self.force_refresh)
+                if gadm.get("iso3"):
+                    country_code = gadm["iso3"]
+                if gadm.get("classification"):
+                    cat = gadm["classification"]
+
+            place_country[qid] = country_code
+            place_classification[qid] = cat
+
+        # 4. Group entities and compute country-level expected urban shares.
         groups: dict[str, list[Entity]] = {"urban": [], "rural": [], "unclassified": list(no_place)}
+        entity_expected_urban: list[float] = []
+
         for qid, ents in place_to_entities.items():
-            category = classification.get(qid, "unclassified")
+            category = place_classification.get(qid, "unclassified")
             groups[category].extend(ents)
 
-        # 4. Build metrics.
+            if category in ("urban", "rural"):
+                c_code = place_country.get(qid)
+                # Look up country urban share from GHS or fallback
+                u_share = (
+                    self._ghs_shares.get(c_code)
+                    if c_code and c_code in self._ghs_shares
+                    else self._world_baseline.get("urban", 0.57)
+                )
+                for _ in ents:
+                    entity_expected_urban.append(u_share)
+
+        # 5. Build country-level weighted baseline for the classified cohort.
+        if entity_expected_urban:
+            cohort_expected_urban = round(sum(entity_expected_urban) / len(entity_expected_urban), 4)
+        else:
+            cohort_expected_urban = self._world_baseline.get("urban", 0.57)
+
+        cohort_expected = {
+            "urban": cohort_expected_urban,
+            "rural": round(1.0 - cohort_expected_urban, 4),
+        }
+
+        # 6. Build metrics.
         population_size = len(entity_list)
         classified_size = len(groups["urban"]) + len(groups["rural"])
 
@@ -126,7 +170,6 @@ class RuralUrbanDetector(BiasDetector):
             share_of_total = round(count / population_size, 4)
 
             if category == "unclassified":
-                # Informational only — no baseline, no disparity ratio.
                 metrics.append(
                     DisparityMetric(
                         axis=self.axis,
@@ -141,7 +184,7 @@ class RuralUrbanDetector(BiasDetector):
                         severity=0.0,
                         message=(
                             f"unclassified: {count}/{population_size} entities "
-                            f"({share_of_total:.1%}) — no P31 match for their "
+                            f"({share_of_total:.1%}) — no coordinates/P31 match for their "
                             f"{self.property_id} place, or no {self.property_id} recorded."
                         ),
                         evidence={
@@ -153,9 +196,7 @@ class RuralUrbanDetector(BiasDetector):
                 )
                 continue
 
-            # For urban/rural, compute share within classified-only population
-            # (excludes unclassified from denominator, making the ratio meaningful).
-            expected = self._baseline.get(category)
+            expected = cohort_expected.get(category)
             if classified_size:
                 observed = round(count / classified_size, 4)
             else:
@@ -182,6 +223,7 @@ class RuralUrbanDetector(BiasDetector):
                         "classified_population": classified_size,
                         "total_population": population_size,
                         "share_of_total": share_of_total,
+                        "country_weighted_baseline": True,
                     },
                 )
             )
@@ -204,4 +246,4 @@ class RuralUrbanDetector(BiasDetector):
         if expected is None:
             return f"{base}."
         direction = "over" if observed > expected else "under"
-        return f"{base} vs. {expected:.1%} world population — {direction}represented."
+        return f"{base} vs. {expected:.1%} country-weighted expected population — {direction}represented."
