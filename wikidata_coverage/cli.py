@@ -236,11 +236,12 @@ def bias_demographic(
     )
     props_to_check = list(properties) if properties else ["P27", "P172", "P106"]
 
+    sparql = SparqlClient()
     report = BiasReport()
     for prop_id in props_to_check:
         axis_name = PROPERTY_AXIS_NAMES.get(prop_id, prop_id)
         console.print(f"Running demographic-balance detector (property={prop_id} — {axis_name})...")
-        detector = DemographicBalanceDetector(property_id=prop_id, expected_shares={})
+        detector = DemographicBalanceDetector(property_id=prop_id, sparql=sparql)
         report.add(detector.run(entities))
 
     _emit_bias(

@@ -22,6 +22,7 @@ daemon processes where baseline staleness matters).
 from __future__ import annotations
 
 import logging
+import re
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
@@ -179,6 +180,186 @@ def country_population_shares(
         save_cached_json(cache_key, _country_shares)
     logger.info("Loaded population shares for %d countries.", len(_country_shares))
     return _country_shares
+
+
+# ---------------------------------------------------------------------------
+# Earth & Time-Aware Population Timelines (P1082 x P585 point in time)
+# ---------------------------------------------------------------------------
+
+def _parse_year(time_str: str | None) -> int | None:
+    if not time_str:
+        return None
+    m = re.search(r"([+-]?\d{1,4})", time_str)
+    if m:
+        try:
+            return int(m.group(1))
+        except ValueError:
+            pass
+    return None
+
+
+def earth_population_timeline(
+    sparql: "SparqlClient",
+    force_refresh: bool = False,
+) -> list[tuple[int, float]]:
+    """Returns Earth's (wd:Q2) population timeline as list of (year, population) pairs, sorted descending by year."""
+    cache_key = "cache_earth_population_timeline.json"
+    if not force_refresh:
+        cached = get_cached_json(cache_key)
+        if isinstance(cached, list) and cached:
+            return [(r[0], float(r[1])) for r in cached]
+
+    query = """
+    SELECT ?pop ?time WHERE {
+      wd:Q2 p:P1082 ?stmt .
+      ?stmt ps:P1082 ?pop .
+      OPTIONAL { ?stmt pq:P585 ?time }
+    }
+    """
+    try:
+        rows = sparql.query(query)
+        timeline: list[tuple[int, float]] = []
+        for r in rows:
+            try:
+                pop = float(r.get("pop", 0))
+                yr = _parse_year(r.get("time"))
+                if pop > 0:
+                    timeline.append((yr if yr is not None else 2020, pop))
+            except (ValueError, TypeError):
+                pass
+        timeline.sort(key=lambda x: x[0], reverse=True)
+        if timeline:
+            save_cached_json(cache_key, timeline)
+        return timeline
+    except Exception as exc:
+        logger.warning("earth_population_timeline SPARQL failed: %s", exc)
+        return [(2020, 7_830_458_560.0)]
+
+
+def get_earth_population_at_year(
+    year: int | None, timeline: list[tuple[int, float]] | None = None
+) -> float:
+    """Find Earth population closest to the specified year (defaults to ~7.8B)."""
+    if not timeline:
+        return 7_830_458_560.0
+    if year is None:
+        return timeline[0][1]
+    closest = min(timeline, key=lambda x: abs(x[0] - year))
+    return closest[1]
+
+
+def country_expected_shares_timeline(
+    sparql: "SparqlClient",
+    force_refresh: bool = False,
+) -> dict[str, float]:
+    """Country QID -> expected fraction of world population, benchmarked against Earth's population at point in time (P585)."""
+    cache_key = "cache_country_expected_shares.json"
+    if not force_refresh:
+        cached = get_cached_json(cache_key)
+        if isinstance(cached, dict) and cached:
+            return cached
+
+    timeline = earth_population_timeline(sparql, force_refresh=force_refresh)
+    query = """
+    SELECT ?country (MAX(?pop) AS ?maxPop) (SAMPLE(?time) AS ?sampleTime) WHERE {
+      ?country wdt:P31 wd:Q6256 ;
+               p:P1082 ?stmt .
+      ?stmt ps:P1082 ?pop .
+      OPTIONAL { ?stmt pq:P585 ?time . }
+    }
+    GROUP BY ?country
+    ORDER BY DESC(?maxPop)
+    """
+    try:
+        rows = sparql.query(query)
+        shares: dict[str, float] = {}
+        for r in rows:
+            qid = r.get("country", "").rsplit("/", 1)[-1]
+            try:
+                pop = float(r.get("maxPop", 0))
+                yr = _parse_year(r.get("sampleTime"))
+                earth_p = get_earth_population_at_year(yr, timeline)
+                if qid and pop > 0 and earth_p > 0:
+                    shares[qid] = round(pop / earth_p, 6)
+            except (ValueError, TypeError):
+                pass
+        if shares:
+            save_cached_json(cache_key, shares)
+        return shares
+    except Exception as exc:
+        logger.warning("country_expected_shares_timeline SPARQL failed: %s", exc)
+        return {}
+
+
+def ethnicity_expected_shares_timeline(
+    sparql: "SparqlClient",
+    force_refresh: bool = False,
+) -> dict[str, float]:
+    """Ethnicity QID -> expected fraction of world population, benchmarked against Earth's population at point in time (P585)."""
+    cache_key = "cache_ethnicity_expected_shares.json"
+    if not force_refresh:
+        cached = get_cached_json(cache_key)
+        if isinstance(cached, dict) and cached:
+            return cached
+
+    timeline = earth_population_timeline(sparql, force_refresh=force_refresh)
+    query = """
+    SELECT ?ethnicity (MAX(?pop) AS ?maxPop) (SAMPLE(?time) AS ?sampleTime) WHERE {
+      ?ethnicity wdt:P31/wdt:P279* wd:Q41710 ;
+                 p:P1082 ?stmt .
+      ?stmt ps:P1082 ?pop .
+      OPTIONAL { ?stmt pq:P585 ?time . }
+    }
+    GROUP BY ?ethnicity
+    ORDER BY DESC(?maxPop)
+    """
+    try:
+        rows = sparql.query(query)
+        shares: dict[str, float] = {}
+        for r in rows:
+            qid = r.get("ethnicity", "").rsplit("/", 1)[-1]
+            try:
+                pop = float(r.get("maxPop", 0))
+                yr = _parse_year(r.get("sampleTime"))
+                earth_p = get_earth_population_at_year(yr, timeline)
+                if qid and pop > 0 and earth_p > 0:
+                    shares[qid] = round(pop / earth_p, 6)
+            except (ValueError, TypeError):
+                pass
+        if shares:
+            save_cached_json(cache_key, shares)
+        return shares
+    except Exception as exc:
+        logger.warning("ethnicity_expected_shares_timeline SPARQL failed: %s", exc)
+        return {}
+
+
+def sovereign_country_qids(
+    sparql: "SparqlClient",
+    force_refresh: bool = False,
+) -> set[str]:
+    """Returns set of QIDs representing real sovereign states (P31=Q6256)."""
+    cache_key = "cache_sovereign_country_qids.json"
+    if not force_refresh:
+        cached = get_cached_json(cache_key)
+        if isinstance(cached, list) and cached:
+            return set(cached)
+
+    query = """
+    SELECT ?country WHERE {
+      ?country wdt:P31 wd:Q6256 .
+    }
+    """
+    try:
+        rows = sparql.query(query)
+        qids = {r.get("country", "").rsplit("/", 1)[-1] for r in rows if r.get("country")}
+        qids.discard("")
+        if qids:
+            save_cached_json(cache_key, list(qids))
+        return qids
+    except Exception as exc:
+        logger.warning("sovereign_country_qids SPARQL failed: %s", exc)
+        return set()
 
 
 # ---------------------------------------------------------------------------

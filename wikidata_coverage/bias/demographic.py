@@ -20,10 +20,14 @@ geography, and expected_shares is required rather than optional here.
 
 from __future__ import annotations
 
-from typing import Callable
+from typing import TYPE_CHECKING, Callable
 
+from wikidata_coverage.bias import baselines as _baselines
 from wikidata_coverage.bias.base import GroupShareDetector
 from wikidata_coverage.core.entity import Entity
+
+if TYPE_CHECKING:
+    from wikidata_coverage.access.sparql import SparqlClient
 
 
 PROPERTY_AXIS_NAMES: dict[str, str] = {
@@ -45,6 +49,7 @@ class DemographicBalanceDetector(GroupShareDetector):
         self,
         property_id: str,
         expected_shares: dict[str, float] | None = None,
+        sparql: "SparqlClient" | None = None,
         axis: str | None = None,
         group_label_fn: Callable[[str], str] | None = None,
         min_group_size: int = 1,
@@ -52,25 +57,39 @@ class DemographicBalanceDetector(GroupShareDetector):
     ) -> None:
         """
         Args:
-            property_id: the PID to group by, e.g. "P106" (occupation).
-            expected_shares: group key -> expected population fraction. Defaults to empty dict.
+            property_id: the PID to group by, e.g. "P106" (occupation), "P27" (nationality), "P172" (ethnicity).
+            expected_shares: group key -> expected population fraction. Defaults to time-aware Earth-benchmarked baselines for P27 and P172.
+            sparql: optional SPARQL client to fetch live time-aware baselines and sovereign state filters.
             axis: metric axis label; defaults to descriptive label (e.g. nationality (P27)) or property id.
             take_first_value: if an entity has multiple values for
                 property_id, use only the first (avoids double-counting
                 entities across groups, which would break share math).
-                Set False only if you've designed expected_shares to
-                account for multi-membership.
         """
+        sovereign_set: set[str] | None = None
+        if property_id == "P27" and sparql is not None:
+            sovereign_set = _baselines.sovereign_country_qids(sparql)
+
+        if not expected_shares and sparql is not None:
+            if property_id == "P27":
+                expected_shares = _baselines.country_expected_shares_timeline(sparql)
+            elif property_id == "P172":
+                expected_shares = _baselines.ethnicity_expected_shares_timeline(sparql)
+
         def group_fn(entity: Entity) -> str | None:
             values = entity.values_for(property_id)
             if not values:
                 return None
             v = values[0] if take_first_value else values
+            qid = None
             if isinstance(v, dict) and "id" in v:
-                return v["id"]
-            if isinstance(v, str) and v.startswith("Q"):
-                return v
-            return None
+                qid = v["id"]
+            elif isinstance(v, str) and v.startswith("Q"):
+                qid = v
+
+            if qid and property_id == "P27" and sovereign_set is not None:
+                if qid not in sovereign_set:
+                    return None
+            return qid
 
         default_axis = PROPERTY_AXIS_NAMES.get(property_id, property_id)
 
