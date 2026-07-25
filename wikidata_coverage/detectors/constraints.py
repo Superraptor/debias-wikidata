@@ -31,7 +31,6 @@ CONSTRAINT_TYPE_ONE_OF = "Q21510859"
 CONSTRAINT_TYPE_VALUE_TYPE = "Q21510865"
 CONSTRAINT_TYPE_SINGLE_VALUE = "Q19474404"
 CONSTRAINT_TYPE_SUBJECT_TYPE = "Q21503250"
-CONSTRAINT_TYPE_CONFLICTS_WITH = "Q21502410"
 CONSTRAINT_TYPE_REQUIRES_STATEMENT = "Q21502838"
 CONSTRAINT_TYPE_REQUIRES_STATEMENT_ALT = "Q21503247"
 CONSTRAINT_TYPE_QUALIFIER = "Q21510851"
@@ -261,8 +260,6 @@ class ConstraintDetector(Detector):
                 findings.extend(self._check_single_value(entity, property_id, is_suggestion))
             elif ctype == CONSTRAINT_TYPE_ONE_OF:
                 findings.extend(self._check_one_of(entity, property_id, qualifiers, is_suggestion))
-            elif ctype == CONSTRAINT_TYPE_CONFLICTS_WITH:
-                findings.extend(self._check_conflicts_with(entity, property_id, qualifiers, is_suggestion))
             elif ctype == CONSTRAINT_TYPE_QUALIFIER:
                 findings.extend(self._check_qualifiers(entity, property_id, qualifiers, is_suggestion))
 

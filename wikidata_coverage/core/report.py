@@ -77,6 +77,35 @@ class CoverageReport:
             grouped[f.detector].append(f)
         return grouped
 
+    def resolve_labels(self, lang: str = "en", api_client: ActionApiClient | None = None) -> None:
+        """Fetch human-readable labels for all entity_ids and property_ids in findings."""
+        all_ids: set[str] = set()
+        for f in self.findings:
+            if f.entity_id:
+                all_ids.add(f.entity_id)
+            if f.property_id:
+                all_ids.add(f.property_id)
+            if f.suggested_fix and f.suggested_fix.description:
+                for m in re.findall(r"\b([PQ]\d+)\b", f.suggested_fix.description):
+                    all_ids.add(m)
+
+        if not all_ids:
+            return
+
+        try:
+            api = api_client or ActionApiClient()
+            labels = api.get_labels(list(all_ids), lang=lang)
+        except Exception:
+            labels = {}
+
+        for f in self.findings:
+            if not f.entity_label and f.entity_id in labels:
+                f.entity_label = labels[f.entity_id]
+            if f.property_id and f.property_id in labels:
+                prop_lbl = labels[f.property_id]
+                if prop_lbl and prop_lbl != f.property_id and f.property_id in f.message and f"({prop_lbl})" not in f.message:
+                    f.message = f.message.replace(f.property_id, f"{f.property_id} ({prop_lbl})")
+
     def worst_entities(
         self, n: int = 10, lang: str = "en", api_client: ActionApiClient | None = None
     ) -> list[dict[str, Any]]:

@@ -667,6 +667,90 @@ def bias_demo(
     _run_bias_demo(class_qid, limit, out_path, live_baselines, lang, nationality, occupation, ethnicity, custom_filters)
 
 
+def _run_coverage_demo(
+    class_qid: str = "Q5",
+    limit: int = 100,
+    out_path: str = "debias_wikidata_coverage_demo.html",
+    threshold: float = 0.8,
+    lang: str = "en",
+    nationality: str | None = None,
+    occupation: str | None = None,
+    ethnicity: str | None = None,
+    custom_filters: tuple[str, ...] = (),
+) -> None:
+    entities = _fetch_class_entities(
+        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
+    )
+    console.print(f"Running constraint & class-profile quality audit across [bold]{len(entities):,}[/bold] entities of class [bold]{class_qid}[/bold]...")
+
+    c_detector = ConstraintDetector(exclude_fictional=True)
+    c_findings = c_detector.run(entities)
+    console.print(f" -> ConstraintDetector generated [bold]{len(c_findings):,}[/bold] findings")
+
+    p_detector = ClassProfileDetector(frequency_threshold=threshold)
+    p_findings = p_detector.run(entities)
+    console.print(f" -> ClassProfileDetector generated [bold]{len(p_findings):,}[/bold] findings")
+
+    report = CoverageReport()
+    report.add(c_findings)
+    report.add(p_findings)
+
+    console.print(" -> Resolving entity & property labels for human readability...")
+    report.resolve_labels(lang=lang)
+
+    console.print(f" -> Generating interactive HTML coverage demo report at [bold green]{out_path}[/bold green]...")
+    from wikidata_coverage.coverage_html_report import generate_coverage_html_report
+
+    generate_coverage_html_report(report, sample_size=len(entities), class_qid=class_qid, out_path=out_path, lang=lang)
+    console.print(f"[bold green]✓ Interactive Coverage & Quality Demo Report successfully generated: {out_path}[/bold green]")
+
+
+@main.command(name="coverage-demo")
+@click.option("--class", "class_qid", default="Q5", show_default=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=100, show_default=True, callback=validate_limit_option, help="Max entities to sample")
+@click.option("--out", "out_path", default="debias_wikidata_coverage_demo.html", show_default=True, help="Path to write interactive HTML coverage report")
+@click.option("--threshold", default=0.8, show_default=True, help="Peer-frequency threshold for class-profile detector")
+@click.option("--lang", default="en", show_default=True, help="Language code for labels")
+@scope_filter_options
+def cli_coverage_demo(
+    class_qid: str,
+    limit: int,
+    out_path: str,
+    threshold: float,
+    lang: str,
+    nationality: str | None,
+    occupation: str | None,
+    ethnicity: str | None,
+    custom_filters: tuple[str, ...],
+) -> None:
+    """Run constraint violations & class profile audit across entities and generate an interactive HTML report with QuickStatements."""
+    _run_coverage_demo(class_qid, limit, out_path, threshold, lang, nationality, occupation, ethnicity, custom_filters)
+
+
+@main.command(name="coverage")
+@click.option("--class", "class_qid", default="Q5", show_default=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=100, show_default=True, callback=validate_limit_option, help="Max entities to sample")
+@click.option("--out", "out_path", default="debias_wikidata_coverage_demo.html", show_default=True, help="Path to write interactive HTML coverage report")
+@click.option("--threshold", default=0.8, show_default=True, help="Peer-frequency threshold for class-profile detector")
+@click.option("--lang", default="en", show_default=True, help="Language code for labels")
+@scope_filter_options
+def cli_coverage_alias(
+    class_qid: str,
+    limit: int,
+    out_path: str,
+    threshold: float,
+    lang: str,
+    nationality: str | None,
+    occupation: str | None,
+    ethnicity: str | None,
+    custom_filters: tuple[str, ...],
+) -> None:
+    """Run constraint violations & class profile audit across entities and generate an interactive HTML report with QuickStatements."""
+    _run_coverage_demo(class_qid, limit, out_path, threshold, lang, nationality, occupation, ethnicity, custom_filters)
+
+
+
+
 # ---------------------------------------------------------------------------
 # Internal helpers
 # ---------------------------------------------------------------------------
