@@ -7,6 +7,7 @@ access/dumps.py (optional) for that.
 
 from __future__ import annotations
 
+import re
 import time
 from typing import Any, Iterable
 
@@ -14,6 +15,33 @@ from SPARQLWrapper import JSON, SPARQLWrapper
 
 WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
 USER_AGENT = "wikidata-coverage/0.1 (https://github.com/example/wikidata-coverage)"
+
+QID_PATTERN = re.compile(r"^Q\d+$", re.IGNORECASE)
+PID_PATTERN = re.compile(r"^P\d+$", re.IGNORECASE)
+
+
+def validate_qid(qid: str | None, param_name: str = "QID") -> str:
+    if not qid:
+        raise ValueError(f"{param_name} cannot be empty.")
+    qid_clean = qid.strip().upper()
+    if not QID_PATTERN.match(qid_clean):
+        raise ValueError(
+            f"Invalid {param_name} format '{qid}'. "
+            f"Wikidata QIDs must be in format 'Q' followed by digits (e.g. Q5, Q142)."
+        )
+    return qid_clean
+
+
+def validate_pid(pid: str | None, param_name: str = "PID") -> str:
+    if not pid:
+        raise ValueError(f"{param_name} cannot be empty.")
+    pid_clean = pid.strip().upper()
+    if not PID_PATTERN.match(pid_clean):
+        raise ValueError(
+            f"Invalid {param_name} format '{pid}'. "
+            f"Wikidata PIDs must be in format 'P' followed by digits (e.g. P21, P106)."
+        )
+    return pid_clean
 
 
 class SparqlClient:
@@ -57,22 +85,32 @@ class SparqlClient:
         via_subclass: bool = True,
         property_filters: dict[str, str] | None = None,
         required_properties: list[str] | None = None,
+        exclude_fictional: bool = True,
         limit: int | None = None,
     ) -> list[str]:
         """All items with `wdt:P31/wdt:P279*` (instance of, transitively via
         subclass) the given class, optionally filtered by property values
         (e.g. property_filters={"P27": "Q142", "P106": "Q169470"})."""
+        class_qid = validate_qid(class_qid, "class QID")
         path = "wdt:P31/wdt:P279*" if via_subclass else "wdt:P31"
         filter_lines = []
         if property_filters:
             for prop, val in property_filters.items():
-                val_expr = val if val.startswith("wd:") else f"wd:{val}"
-                prop_expr = prop if prop.startswith("wdt:") or prop.startswith("p:") else f"wdt:{prop}"
+                p_clean = validate_pid(prop, "property filter PID")
+                v_clean = validate_qid(val, f"property filter value for {prop}") if val.upper().startswith("Q") else val
+                val_expr = v_clean if v_clean.startswith("wd:") else f"wd:{v_clean}"
+                prop_expr = p_clean if p_clean.startswith("wdt:") or p_clean.startswith("p:") else f"wdt:{p_clean}"
                 filter_lines.append(f"  ?item {prop_expr} {val_expr} .")
         if required_properties:
             for prop in required_properties:
-                prop_expr = prop if prop.startswith("wdt:") or prop.startswith("p:") else f"wdt:{prop}"
-                filter_lines.append(f"  ?item {prop_expr} ?req_{prop} .")
+                p_clean = validate_pid(prop, "required property PID")
+                prop_expr = p_clean if p_clean.startswith("wdt:") or p_clean.startswith("p:") else f"wdt:{p_clean}"
+                filter_lines.append(f"  ?item {prop_expr} ?req_{p_clean} .")
+
+        if exclude_fictional:
+            filter_lines.append("  FILTER NOT EXISTS { ?item wdt:P31/wdt:P279* wd:Q148837 . }")
+            filter_lines.append("  FILTER NOT EXISTS { ?item wdt:P1080 ?fictional_universe . }")
+
         filter_clause = "\n".join(filter_lines)
 
         limit_clause = f"LIMIT {limit}" if limit else ""
@@ -91,6 +129,7 @@ class SparqlClient:
         own item, including the constraint type and its qualifiers.
         Property constraints live on the Property namespace (P-item),
         e.g. wd:P569 wdt:P2302 wd:Q21502410 (constraint: type)."""
+        property_id = validate_pid(property_id, "property ID")
         query = f"""
         SELECT ?constraint ?constraintType ?qualifierProp ?qualifierValue WHERE {{
           wd:{property_id} p:P2302 ?constraintStatement .
@@ -110,6 +149,8 @@ class SparqlClient:
         """Items of a class that lack a given property entirely -- a direct,
         SPARQL-native way to do simple missing-statement detection without
         pulling full entity JSON first."""
+        class_qid = validate_qid(class_qid, "class QID")
+        missing_property = validate_pid(missing_property, "missing property PID")
         query = f"""
         SELECT ?item WHERE {{
           ?item wdt:P31/wdt:P279* wd:{class_qid} .

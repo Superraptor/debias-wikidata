@@ -16,6 +16,8 @@ Examples:
 
 from __future__ import annotations
 
+import re
+
 import click
 from rich.console import Console
 from rich.table import Table
@@ -43,13 +45,79 @@ from wikidata_coverage.detectors.constraints import ConstraintDetector
 
 console = Console()
 
+QID_PATTERN = re.compile(r"^Q\d+$", re.IGNORECASE)
+PID_PATTERN = re.compile(r"^P\d+$", re.IGNORECASE)
+
+
+def validate_qid_option(ctx, param, value):
+    if value is None:
+        return None
+    val_clean = str(value).strip().upper()
+    if not QID_PATTERN.match(val_clean):
+        raise click.BadParameter(
+            f"Invalid Wikidata Item QID '{value}'. QIDs must be in format 'Q' followed by digits (e.g. Q5, Q142)."
+        )
+    return val_clean
+
+
+def validate_pid_option(ctx, param, value):
+    if not value:
+        return value
+    if isinstance(value, (tuple, list)):
+        cleaned = []
+        for item in value:
+            item_clean = str(item).strip().upper()
+            if not PID_PATTERN.match(item_clean):
+                raise click.BadParameter(
+                    f"Invalid Wikidata Property PID '{item}'. Property PIDs must be in format 'P' followed by digits (e.g. P21, P106)."
+                )
+            cleaned.append(item_clean)
+        return tuple(cleaned) if isinstance(value, tuple) else cleaned
+    else:
+        val_clean = str(value).strip().upper()
+        if not PID_PATTERN.match(val_clean):
+            raise click.BadParameter(
+                f"Invalid Wikidata Property PID '{value}'. Property PIDs must be in format 'P' followed by digits (e.g. P21, P106)."
+            )
+        return val_clean
+
+
+def validate_filter_option(ctx, param, value):
+    if not value:
+        return value
+    cleaned = []
+    for item in value:
+        if "=" not in item:
+            raise click.BadParameter(
+                f"Invalid filter format '{item}'. Filters must be in 'Pxx=Qyy' format (e.g. P27=Q142)."
+            )
+        p, v = item.split("=", 1)
+        p_clean = p.strip().upper()
+        if not PID_PATTERN.match(p_clean):
+            raise click.BadParameter(
+                f"Invalid property PID '{p}' in filter '{item}'. Property PIDs must be in format 'P' followed by digits (e.g. P27)."
+            )
+        v_clean = v.strip()
+        if v_clean.upper().startswith("Q") and not QID_PATTERN.match(v_clean.upper()):
+            raise click.BadParameter(
+                f"Invalid QID '{v}' in filter '{item}'. QIDs must be in format 'Q' followed by digits (e.g. Q142)."
+            )
+        cleaned.append(f"{p_clean}={v_clean.upper() if v_clean.upper().startswith('Q') else v_clean}")
+    return tuple(cleaned)
+
+
+def validate_limit_option(ctx, param, value):
+    if value is not None and value <= 0:
+        raise click.BadParameter(f"Limit must be a positive integer greater than 0, got {value}.")
+    return value
+
 
 def scope_filter_options(f):
     """Reusable Click options for scoping entity sampling by nationality, occupation, ethnicity, etc."""
-    f = click.option("--nationality", default=None, help="Filter scope by nationality (P27 QID), e.g. Q142 (France)")(f)
-    f = click.option("--occupation", default=None, help="Filter scope by occupation (P106 QID), e.g. Q169470 (physicist)")(f)
-    f = click.option("--ethnicity", default=None, help="Filter scope by ethnic group (P172 QID), e.g. Q539050")(f)
-    f = click.option("--filter", "custom_filters", multiple=True, help="Custom property filter in Pxx=Qyy format, e.g. P27=Q142")(f)
+    f = click.option("--nationality", default=None, callback=validate_qid_option, help="Filter scope by nationality (P27 QID), e.g. Q142 (France)")(f)
+    f = click.option("--occupation", default=None, callback=validate_qid_option, help="Filter scope by occupation (P106 QID), e.g. Q169470 (physicist)")(f)
+    f = click.option("--ethnicity", default=None, callback=validate_qid_option, help="Filter scope by ethnic group (P172 QID), e.g. Q539050")(f)
+    f = click.option("--filter", "custom_filters", multiple=True, callback=validate_filter_option, help="Custom property filter in Pxx=Qyy format, e.g. P27=Q142")(f)
     return f
 
 
@@ -67,6 +135,7 @@ def _fetch_class_entities(
     ethnicity: str | None = None,
     custom_filters: tuple[str, ...] = (),
     required_properties: list[str] | None = None,
+    exclude_fictional: bool = True,
 ) -> list[Entity]:
     property_filters: dict[str, str] = {}
     if nationality:
@@ -82,11 +151,13 @@ def _fetch_class_entities(
 
     sparql = SparqlClient()
     filter_str = f" with filters {property_filters}" if property_filters else ""
-    console.print(f"[bold]Fetching up to {limit} items of class {class_qid}{filter_str}...[/bold]")
+    fictional_str = " (excluding fictional)" if exclude_fictional else ""
+    console.print(f"[bold]Fetching up to {limit} items of class {class_qid}{filter_str}{fictional_str}...[/bold]")
     qids = sparql.qids_of_class(
         class_qid,
         property_filters=property_filters,
         required_properties=required_properties,
+        exclude_fictional=exclude_fictional,
         limit=limit,
     )
     console.print(f"Found {len(qids)} items. Fetching entity data...")
@@ -103,14 +174,17 @@ def main() -> None:
 # ---------------------------------------------------------------------------
 
 @main.command()
-@click.option("--class", "class_qid", required=True, help="QID of the class to scope to, e.g. Q5")
-@click.option("--property", "properties", multiple=True, required=True, help="PID(s) to constraint-check")
-@click.option("--limit", default=100, show_default=True, help="Max entities to pull for the class")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class to scope to, e.g. Q5")
+@click.option("--property", "properties", multiple=True, required=False, callback=validate_pid_option, help="PID(s) to constraint-check (omitting checks all properties on sampled entities)")
+@click.option("--limit", default=100, show_default=True, callback=validate_limit_option, help="Max entities to pull for the class")
+@click.option("--include-fictional", is_flag=True, default=False, help="Include fictional entities/characters in constraint checks (excluded by default)")
 @click.option("--out", "out_path", default=None, help="Write JSON report to this path instead of stdout")
-def constraints(class_qid: str, properties: tuple[str, ...], limit: int, out_path: str | None) -> None:
+def constraints(class_qid: str, properties: tuple[str, ...], limit: int, include_fictional: bool, out_path: str | None) -> None:
     """Run constraint-based detection over items of a given class."""
-    entities = _fetch_class_entities(class_qid, limit)
-    detector = ConstraintDetector(properties_to_check=list(properties))
+    exclude_fictional = not include_fictional
+    entities = _fetch_class_entities(class_qid, limit, exclude_fictional=exclude_fictional)
+    props = list(properties) if properties else None
+    detector = ConstraintDetector(properties_to_check=props, exclude_fictional=exclude_fictional)
 
     console.print("Running constraint detector...")
     findings = detector.run(entities)
@@ -121,8 +195,8 @@ def constraints(class_qid: str, properties: tuple[str, ...], limit: int, out_pat
 
 
 @main.command(name="class-profile")
-@click.option("--class", "class_qid", required=True, help="QID of the class to scope to, e.g. Q5")
-@click.option("--limit", default=200, show_default=True, help="Max entities to pull for the class")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class to scope to, e.g. Q5")
+@click.option("--limit", default=200, show_default=True, callback=validate_limit_option, help="Max entities to pull for the class")
 @click.option("--threshold", default=0.8, show_default=True, help="Peer-frequency threshold")
 @click.option("--out", "out_path", default=None, help="Write JSON report to this path instead of stdout")
 def class_profile(class_qid: str, limit: int, threshold: float, out_path: str | None) -> None:
@@ -148,8 +222,8 @@ def bias() -> None:
 
 
 @bias.command(name="gender")
-@click.option("--class", "class_qid", required=True, help="QID of the class/scope, e.g. Q5 (human)")
-@click.option("--limit", default=500, show_default=True, help="Max entities to sample")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @scope_filter_options
 @click.option("--live-baselines", is_flag=True, default=False, help="Fetch live population baselines from Wikidata via SPARQL")
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
@@ -179,11 +253,11 @@ def bias_gender(
 
 
 @bias.command(name="geographic")
-@click.option("--class", "class_qid", required=True, help="QID of the class/scope, e.g. Q5 (human)")
-@click.option("--limit", default=500, show_default=True, help="Max entities to sample")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @scope_filter_options
 @click.option(
-    "--property", "property_id", default="P27", show_default=True,
+    "--property", "property_id", default="P27", show_default=True, callback=validate_pid_option,
     help="Country property to group by (P27=citizenship, P17=country, P19=place of birth)"
 )
 @click.option("--live-baselines", is_flag=True, default=False, help="Fetch live population baselines from Wikidata via SPARQL")
@@ -215,9 +289,9 @@ def bias_geographic(
 
 
 @bias.command(name="demographic")
-@click.option("--class", "class_qid", required=True, help="QID of the class/scope, e.g. Q5 (human)")
-@click.option("--property", "properties", multiple=True, help="PID(s) to group by, e.g. P27, P172, P106 (defaults to nationality, ethnicity, occupation)")
-@click.option("--limit", default=500, show_default=True, help="Max entities to sample")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--property", "properties", multiple=True, callback=validate_pid_option, help="PID(s) to group by, e.g. P27, P172, P106 (defaults to nationality, ethnicity, occupation)")
+@click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @scope_filter_options
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
 def bias_demographic(
@@ -252,8 +326,8 @@ def bias_demographic(
 
 
 @bias.command(name="linguistic")
-@click.option("--class", "class_qid", required=True, help="QID of the class/scope, e.g. Q5 (human)")
-@click.option("--limit", default=500, show_default=True, help="Max entities to sample")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @scope_filter_options
 @click.option("--top-languages", default=30, show_default=True, help="Number of languages by speaker count to fetch for baseline")
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
@@ -283,8 +357,8 @@ def bias_linguistic(
 
 
 @bias.command(name="sexual-orientation")
-@click.option("--class", "class_qid", required=True, help="QID of the class/scope, e.g. Q5 (human)")
-@click.option("--limit", default=500, show_default=True, help="Max entities to sample")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @scope_filter_options
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
 def bias_sexual_orientation(
@@ -311,10 +385,10 @@ def bias_sexual_orientation(
 
 
 @bias.command(name="rural-urban")
-@click.option("--class", "class_qid", required=True, help="QID of the class/scope, e.g. Q5 (human)")
-@click.option("--limit", default=500, show_default=True, help="Max entities to sample")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @scope_filter_options
-@click.option("--property", "property_id", default="P19", show_default=True, help="Place property to analyze (P19=place of birth, P20=place of death)")
+@click.option("--property", "property_id", default="P19", show_default=True, callback=validate_pid_option, help="Place property to analyze (P19=place of birth, P20=place of death)")
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
 def bias_rural_urban(
     class_qid: str,
@@ -348,8 +422,8 @@ def bias_rural_urban(
 
 
 @bias.command(name="ethnicity")
-@click.option("--class", "class_qid", required=True, help="QID of the class/scope, e.g. Q5 (human)")
-@click.option("--limit", default=500, show_default=True, help="Max entities to sample")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @scope_filter_options
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
 def bias_ethnicity(
@@ -376,13 +450,13 @@ def bias_ethnicity(
 
 
 @bias.command(name="intersectional")
-@click.option("--class", "class_qid", required=True, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @click.option(
     "--axis", "intersectional_axis", required=True,
     type=click.Choice(["nationality+gender", "language+gender", "occupation+gender", "ethnicity+gender"]),
     help="Pair of axes to evaluate"
 )
-@click.option("--limit", default=500, show_default=True, help="Max entities to sample")
 @scope_filter_options
 @click.option("--live-baselines", is_flag=True, default=False, help="Fetch live population baselines from Wikidata via SPARQL")
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
