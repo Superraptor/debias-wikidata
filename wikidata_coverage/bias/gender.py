@@ -107,6 +107,9 @@ class GenderBalanceDetector(GroupShareDetector):
         else:
             baseline = DEFAULT_GENDER_BASELINE
 
+        self.sparql = sparql
+        self.country_qid = country_qid
+
         super().__init__(
             axis="gender",
             name="gender_balance_detector",
@@ -115,3 +118,12 @@ class GenderBalanceDetector(GroupShareDetector):
             expected_shares=baseline,
             min_group_size=min_group_size,
         )
+
+    def run(self, entities: Iterable[Entity]) -> list[DisparityMetric]:
+        metrics = super().run(entities)
+        source = "Wikidata SPARQL P1539/P1540 (Demographics)" if self.sparql else "Static Equal Split (50/50)"
+        b_type = f"country-specific ({self.country_qid})" if self.country_qid else "overall global world"
+        for m in metrics:
+            m.evidence["source"] = source
+            m.evidence["baseline_type"] = b_type
+        return metrics

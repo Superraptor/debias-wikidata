@@ -224,6 +224,9 @@ class RuralUrbanDetector(BiasDetector):
                         "total_population": population_size,
                         "share_of_total": share_of_total,
                         "country_weighted_baseline": True,
+                        "source": "GADM 4.1.0 / GHSL Degree of Urbanization (R2024A)",
+                        "source_year": "2024",
+                        "baseline_type": "overall global urban/rural split",
                     },
                 )
             )

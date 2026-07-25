@@ -32,7 +32,9 @@ from wikidata_coverage.bias.intersectionality import (
     ethnicity_and_gender_detector,
     language_and_gender_detector,
     nationality_and_gender_detector,
+    nationality_and_sexual_orientation_detector,
     occupation_and_gender_detector,
+    sexual_orientation_and_gender_detector,
 )
 from wikidata_coverage.bias.linguistic import LinguisticCoverageDetector
 from wikidata_coverage.bias.report import BiasReport
@@ -372,13 +374,13 @@ def bias_sexual_orientation(
     custom_filters: tuple[str, ...],
     out_path: str | None,
 ) -> None:
-    """Measure distribution of P91 (sexual orientation) values among entities with P91 recorded."""
+    """Measure distribution of P91 (sexual orientation) values vs. Ipsos global and country-specific baselines."""
     entities = _fetch_class_entities(
         class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
     )
-    detector = SexualOrientationDetector()
+    detector = SexualOrientationDetector(country_qid=nationality)
 
-    console.print("Running sexual-orientation detector...")
+    console.print(f"Running sexual-orientation detector (country baseline={nationality or 'Ipsos Global'})...")
     metrics = detector.run(entities)
 
     report = BiasReport()
@@ -441,7 +443,8 @@ def bias_ethnicity(
     entities = _fetch_class_entities(
         class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
     )
-    detector = EthnicityBalanceDetector()
+    sparql = SparqlClient()
+    detector = EthnicityBalanceDetector(sparql=sparql)
 
     console.print("Running ethnicity-balance detector...")
     metrics = detector.run(entities)
@@ -456,7 +459,14 @@ def bias_ethnicity(
 @click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @click.option(
     "--axis", "intersectional_axis", required=True,
-    type=click.Choice(["nationality+gender", "language+gender", "occupation+gender", "ethnicity+gender"]),
+    type=click.Choice([
+        "nationality+gender",
+        "language+gender",
+        "occupation+gender",
+        "ethnicity+gender",
+        "nationality+sexual_orientation",
+        "sexual_orientation+gender",
+    ]),
     help="Pair of axes to evaluate"
 )
 @scope_filter_options
@@ -473,20 +483,33 @@ def bias_intersectional(
     live_baselines: bool,
     out_path: str | None,
 ) -> None:
-    """Measure joint representation disparities across paired axes (e.g. nationality + gender)."""
+    """Measure joint representation disparities across paired axes (e.g. nationality + sexual orientation)."""
+    from wikidata_coverage.bias.intersectionality import (
+        ethnicity_and_gender_detector,
+        language_and_gender_detector,
+        nationality_and_gender_detector,
+        nationality_and_sexual_orientation_detector,
+        occupation_and_gender_detector,
+        sexual_orientation_and_gender_detector,
+    )
+
     entities = _fetch_class_entities(
         class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
     )
-    sparql = SparqlClient() if live_baselines else None
+    sparql = SparqlClient() if live_baselines or "nationality" in intersectional_axis else None
 
     if intersectional_axis == "nationality+gender":
         detector = nationality_and_gender_detector(sparql=sparql)
     elif intersectional_axis == "language+gender":
         detector = language_and_gender_detector(sparql=sparql)
     elif intersectional_axis == "occupation+gender":
-        detector = occupation_and_gender_detector()
+        detector = occupation_and_gender_detector(sparql=sparql)
     elif intersectional_axis == "ethnicity+gender":
-        detector = ethnicity_and_gender_detector()
+        detector = ethnicity_and_gender_detector(sparql=sparql)
+    elif intersectional_axis == "nationality+sexual_orientation":
+        detector = nationality_and_sexual_orientation_detector(sparql=sparql)
+    elif intersectional_axis == "sexual_orientation+gender":
+        detector = sexual_orientation_and_gender_detector(sparql=sparql)
     else:
         raise click.BadParameter(f"Unknown intersectional axis: {intersectional_axis}")
 
@@ -551,6 +574,97 @@ def bias_all(
     report.add(nat_gen_det.run(entities))
 
     _emit_bias(report, out_path, axis=None)
+
+
+def _run_bias_demo(
+    class_qid: str,
+    limit: int,
+    out_path: str,
+    live_baselines: bool,
+    lang: str,
+    nationality: str | None,
+    occupation: str | None,
+    ethnicity: str | None,
+    custom_filters: tuple[str, ...],
+) -> None:
+    from wikidata_coverage.bias.html_report import generate_html_report
+
+    entities = _fetch_class_entities(
+        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
+    )
+    sparql = SparqlClient() if live_baselines else None
+    report = BiasReport()
+
+    console.print(f"[bold cyan]Running demographic & intersectional bias audit across {len(entities):,} entities of class {class_qid}...[/bold cyan]")
+
+    detectors = [
+        ("Gender Balance", GenderBalanceDetector(sparql=sparql if live_baselines else None, country_qid=nationality)),
+        ("Geographic Disparity", GeographicDisparityDetector(sparql=sparql if live_baselines else None)),
+        ("Sexual Orientation Disparity", SexualOrientationDetector()),
+        ("Ethnicity Balance", EthnicityBalanceDetector(sparql=sparql if live_baselines else None)),
+        ("Linguistic Coverage", LinguisticCoverageDetector(sparql=sparql)),
+        ("Intersectional (Nationality × Gender)", nationality_and_gender_detector(sparql=sparql if live_baselines else None)),
+        ("Intersectional (Language × Gender)", language_and_gender_detector(sparql=sparql if live_baselines else None)),
+        ("Intersectional (Occupation × Gender)", occupation_and_gender_detector(sparql=sparql if live_baselines else None)),
+        ("Intersectional (Ethnicity × Gender)", ethnicity_and_gender_detector(sparql=sparql if live_baselines else None)),
+        ("Intersectional (Nationality × Sexual Orientation)", nationality_and_sexual_orientation_detector(sparql=sparql if live_baselines else None)),
+        ("Intersectional (Sexual Orientation × Gender)", sexual_orientation_and_gender_detector(sparql=sparql if live_baselines else None)),
+    ]
+
+    for label, det in detectors:
+        console.print(f" -> Running {label}...")
+        report.add(det.run(entities))
+
+    console.print(" -> Resolving QID labels for human readability...")
+    report.resolve_labels(lang=lang)
+
+    console.print(f" -> Generating interactive HTML demo report at [bold green]{out_path}[/bold green]...")
+    generate_html_report(report, sample_size=len(entities), class_qid=class_qid, out_path=out_path)
+    console.print(f"[bold green]✓ Interactive HTML Demo Report successfully generated: {out_path}[/bold green]")
+
+
+@main.command(name="demo")
+@click.option("--class", "class_qid", default="Q5", show_default=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=10000, show_default=True, callback=validate_limit_option, help="Max entities to sample")
+@click.option("--out", "out_path", default="debias_wikidata_demo.html", show_default=True, help="Path to write interactive HTML demo report")
+@click.option("--live-baselines/--no-live-baselines", default=True, show_default=True, help="Fetch live baselines via SPARQL")
+@click.option("--lang", default="en", show_default=True, help="Language code for labels")
+@scope_filter_options
+def cli_demo(
+    class_qid: str,
+    limit: int,
+    out_path: str,
+    live_baselines: bool,
+    lang: str,
+    nationality: str | None,
+    occupation: str | None,
+    ethnicity: str | None,
+    custom_filters: tuple[str, ...],
+) -> None:
+    """Run full demographic & intersectional bias audit across entities and generate an interactive HTML demo report."""
+    _run_bias_demo(class_qid, limit, out_path, live_baselines, lang, nationality, occupation, ethnicity, custom_filters)
+
+
+@bias.command(name="demo")
+@click.option("--class", "class_qid", default="Q5", show_default=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
+@click.option("--limit", default=10000, show_default=True, callback=validate_limit_option, help="Max entities to sample")
+@click.option("--out", "out_path", default="debias_wikidata_demo.html", show_default=True, help="Path to write interactive HTML demo report")
+@click.option("--live-baselines/--no-live-baselines", default=True, show_default=True, help="Fetch live baselines via SPARQL")
+@click.option("--lang", default="en", show_default=True, help="Language code for labels")
+@scope_filter_options
+def bias_demo(
+    class_qid: str,
+    limit: int,
+    out_path: str,
+    live_baselines: bool,
+    lang: str,
+    nationality: str | None,
+    occupation: str | None,
+    ethnicity: str | None,
+    custom_filters: tuple[str, ...],
+) -> None:
+    """Run full demographic & intersectional bias audit across entities and generate an interactive HTML demo report."""
+    _run_bias_demo(class_qid, limit, out_path, live_baselines, lang, nationality, occupation, ethnicity, custom_filters)
 
 
 # ---------------------------------------------------------------------------
@@ -652,6 +766,26 @@ def _emit_bias(report: BiasReport, out_path: str | None, axis: str | None) -> No
         detail_table.add_column("Ratio")
         detail_table.add_column("Severity")
         detail_table.add_column("Note")
+        # Collect source citation provenance from metrics
+        sources: set[str] = set()
+        for m in metrics:
+            src = m.evidence.get("source")
+            year = m.evidence.get("source_year")
+            btype = m.evidence.get("baseline_type")
+            expl = m.evidence.get("calculation_explanation")
+            if src:
+                s_str = f"{src}"
+                if year:
+                    s_str += f" ({year})"
+                if btype:
+                    s_str += f" — {btype}"
+                sources.add(s_str)
+            elif expl:
+                sources.add(expl)
+
+        if sources:
+            detail_table.caption = f"Baseline Source: {' | '.join(sorted(sources))}"
+
         for m in sorted(metrics, key=lambda m: (m.disparity_ratio or 9999)):
             ratio_str = f"{m.disparity_ratio:.3f}" if m.disparity_ratio is not None else "—"
             expected_str = f"{m.expected_value:.3f}" if m.expected_value is not None else "—"

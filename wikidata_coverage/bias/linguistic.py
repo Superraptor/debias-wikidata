@@ -149,6 +149,8 @@ class LinguisticCoverageDetector(BiasDetector):
                             "coverage_type": ctype,
                             "in_baseline": expected is not None,
                             "low_confidence": n < 20,
+                            "source": "Wikidata SPARQL P1098 (Language Speaker Count)",
+                            "baseline_type": "overall global speaker population",
                         },
                     )
                 )

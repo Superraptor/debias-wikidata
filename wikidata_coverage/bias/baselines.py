@@ -35,9 +35,12 @@ logger = logging.getLogger(__name__)
 # ---------------------------------------------------------------------------
 _language_shares: dict[str, float] | None = None
 _language_names: dict[str, str] | None = None
+_language_qid_shares: dict[str, float] | None = None
+_language_qid_names: dict[str, str] | None = None
 _country_shares: dict[str, float] | None = None
 _gender_shares: dict[str, dict[str, float]] = {}   # keyed by country_qid or "world"
 _urban_rural_shares: dict[str, float] | None = None
+_ethnicity_shares: dict[str, float] | None = None
 
 
 def _normalize(counts: dict[str, float]) -> dict[str, float]:
@@ -139,6 +142,73 @@ def language_speaker_shares(
         return top_shares, top_names
 
     return shares, names
+
+
+def language_speaker_shares_by_qid(
+    sparql: "SparqlClient",
+    force_refresh: bool = False,
+) -> tuple[dict[str, float], dict[str, str]]:
+    """Wikidata Language QID (e.g. Q1860 for English) → share of global speaker population and language names.
+
+    Queries P1098 (number of speakers) on language items.
+    """
+    global _language_qid_shares, _language_qid_names
+    if _language_qid_shares is None or _language_qid_names is None or force_refresh:
+        cache_shares_key = "cache_language_qid_shares.json"
+        cache_names_key = "cache_language_qid_names.json"
+
+        cached_shares = None if force_refresh else get_cached_json(cache_shares_key)
+        cached_names = None if force_refresh else get_cached_json(cache_names_key)
+
+        if isinstance(cached_shares, dict) and cached_shares and isinstance(cached_names, dict) and cached_names:
+            _language_qid_shares = cached_shares
+            _language_qid_names = cached_names
+        else:
+            query = """
+            SELECT ?lang ?langLabel (MAX(?speakers) AS ?maxSpeakers) WHERE {
+              { ?lang wdt:P218 ?langCode . ?lang wdt:P1098 ?speakers . }
+              UNION
+              { ?lang wdt:P424 ?langCode . ?lang wdt:P1098 ?speakers . }
+              UNION
+              { ?lang wdt:P31/wdt:P279* wd:Q34770 . ?lang wdt:P1098 ?speakers . }
+              FILTER(?speakers > 0)
+              SERVICE wikibase:label { bd:serviceParam wikibase:language "en". }
+            }
+            GROUP BY ?lang ?langLabel
+            ORDER BY DESC(?maxSpeakers)
+            """
+
+            try:
+                rows = sparql.query(query)
+            except Exception as exc:
+                logger.warning("language_speaker_shares_by_qid: SPARQL failed — %s", exc)
+                return {}, {}
+
+            raw_counts: dict[str, float] = {}
+            names: dict[str, str] = {}
+            for row in rows:
+                qid = row.get("lang", "").rsplit("/", 1)[-1]
+                label = row.get("langLabel")
+                speakers = row.get("maxSpeakers", 0)
+                if qid:
+                    try:
+                        spk = float(speakers)
+                        if spk > 0:
+                            if qid not in raw_counts or spk > raw_counts[qid]:
+                                raw_counts[qid] = spk
+                                if label and label != qid:
+                                    names[qid] = label
+                    except (ValueError, TypeError):
+                        pass
+
+            _language_qid_shares = _normalize(raw_counts)
+            _language_qid_names = names
+
+            if _language_qid_shares:
+                save_cached_json(cache_shares_key, _language_qid_shares)
+                save_cached_json(cache_names_key, _language_qid_names)
+
+    return _language_qid_shares or {}, _language_qid_names or {}
 
 
 # ---------------------------------------------------------------------------
@@ -312,45 +382,65 @@ def country_expected_shares_timeline(
 
 def ethnicity_expected_shares_timeline(
     sparql: "SparqlClient",
+    ethnicity_qids: list[str] | None = None,
     force_refresh: bool = False,
 ) -> dict[str, float]:
     """Ethnicity QID -> expected fraction of world population, benchmarked against Earth's population at point in time (P585)."""
+    global _ethnicity_shares
     cache_key = "cache_ethnicity_expected_shares.json"
     if not force_refresh:
+        if _ethnicity_shares is not None:
+            if not ethnicity_qids or all(q in _ethnicity_shares for q in ethnicity_qids):
+                return _ethnicity_shares
         cached = get_cached_json(cache_key)
         if isinstance(cached, dict) and cached:
-            return cached
+            _ethnicity_shares = cached
+            if not ethnicity_qids or all(q in _ethnicity_shares for q in ethnicity_qids):
+                return _ethnicity_shares
 
     timeline = earth_population_timeline(sparql, force_refresh=force_refresh)
-    query = """
-    SELECT ?ethnicity (MAX(?pop) AS ?maxPop) (SAMPLE(?time) AS ?sampleTime) WHERE {
-      ?ethnicity wdt:P31/wdt:P279* wd:Q41710 ;
-                 p:P1082 ?stmt .
-      ?stmt ps:P1082 ?pop .
-      OPTIONAL { ?stmt pq:P585 ?time . }
-    }
-    GROUP BY ?ethnicity
-    ORDER BY DESC(?maxPop)
+    query_qids = [q for q in (ethnicity_qids or []) if q not in (_ethnicity_shares or {})] if not force_refresh and _ethnicity_shares else ethnicity_qids
+
+    raw_shares: dict[str, float] = dict(_ethnicity_shares or {})
+
+    values_clause = f"VALUES ?ethnicity {{ {' '.join(f'wd:{q}' for q in query_qids)} }}" if query_qids else ""
+    class_clause = "?ethnicity wdt:P31/wdt:P279* wd:Q41710 ." if not query_qids else ""
+
+    query = f"""
+    SELECT ?ethnicity ?pop ?time WHERE {{
+      {values_clause}
+      {class_clause}
+      {{
+        ?ethnicity p:P1082 ?stmt .
+        ?stmt ps:P1082 ?pop .
+        OPTIONAL {{ ?stmt pq:P585 ?time . }}
+      }}
+      UNION
+      {{
+        ?ethnicity wdt:P1082 ?pop .
+      }}
+    }}
+    ORDER BY ?ethnicity
     """
     try:
         rows = sparql.query(query)
-        shares: dict[str, float] = {}
         for r in rows:
             qid = r.get("ethnicity", "").rsplit("/", 1)[-1]
             try:
-                pop = float(r.get("maxPop", 0))
-                yr = _parse_year(r.get("sampleTime"))
+                pop = float(r.get("pop", 0))
+                yr = _parse_year(r.get("time"))
                 earth_p = get_earth_population_at_year(yr, timeline)
                 if qid and pop > 0 and earth_p > 0:
-                    shares[qid] = round(pop / earth_p, 6)
+                    raw_shares[qid] = round(pop / earth_p, 6)
             except (ValueError, TypeError):
                 pass
-        if shares:
-            save_cached_json(cache_key, shares)
-        return shares
+        _ethnicity_shares = raw_shares
+        if _ethnicity_shares:
+            save_cached_json(cache_key, _ethnicity_shares)
+        return _ethnicity_shares
     except Exception as exc:
         logger.warning("ethnicity_expected_shares_timeline SPARQL failed: %s", exc)
-        return {}
+        return _ethnicity_shares or {}
 
 
 def sovereign_country_qids(
@@ -639,3 +729,116 @@ def classify_places_by_type(
             result[qid] = "unclassified"
 
     return result
+
+
+# ---------------------------------------------------------------------------
+# Ipsos LGBT+ Pride Survey Sexual Orientation Baselines (Global & Country-Specific)
+#
+# Primary Sources & Data Citations:
+# - Ipsos LGBT+ Pride 2023 Global Survey (30-Country Report):
+#   https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey
+# - Ipsos LGBT+ Pride 2024 Global Survey Report:
+#   https://www.ipsos.com/en/lgbt-pride-2024
+# - Ipsos LGBT+ Pride 2021 Global Survey Report:
+#   https://www.ipsos.com/en/lgbt-pride-2021-global-survey
+# ---------------------------------------------------------------------------
+
+SEXUAL_ORIENTATION_CANONICAL_MAP: dict[str, str] = {
+    "Q1035954": "heterosexual",
+    "Q1072": "heterosexual",
+    "Q6636": "homosexual",
+    "Q43200": "homosexual",      # gay
+    "Q1097630": "homosexual",    # gay
+    "Q44748": "homosexual",     # lesbian
+    "Q747010": "homosexual",     # lesbian
+    "Q6649": "bisexual",
+    "Q271534": "pansexual",
+    "Q272530": "pansexual",
+    "Q18116794": "asexual",
+    "Q724351": "asexual",
+    "Q26705162": "asexual",      # demisexual
+    "Q1415741": "queer",
+    "Q18057751": "queer",
+    "Q212623": "queer",          # non-heterosexuality
+    "Q1097401": "queer",
+}
+
+IPSOS_GLOBAL_SEXUAL_ORIENTATION_SHARES: dict[str, float] = {
+    "heterosexual": 0.880,
+    "homosexual": 0.035,
+    "bisexual": 0.045,
+    "pansexual": 0.015,
+    "asexual": 0.012,
+    "queer": 0.013,
+}
+
+IPSOS_COUNTRY_SEXUAL_ORIENTATION_SHARES: dict[str, dict[str, float]] = {
+    "Q155": {"heterosexual": 0.824, "homosexual": 0.059, "bisexual": 0.082, "pansexual": 0.024, "asexual": 0.011},  # Brazil
+    "Q29":  {"heterosexual": 0.857, "homosexual": 0.066, "bisexual": 0.055, "pansexual": 0.011, "asexual": 0.011},  # Spain
+    "Q30":  {"heterosexual": 0.890, "homosexual": 0.033, "bisexual": 0.055, "pansexual": 0.011, "asexual": 0.011},  # USA
+    "Q145": {"heterosexual": 0.903, "homosexual": 0.043, "bisexual": 0.043, "pansexual": 0.011, "asexual": 0.011},  # UK
+    "Q142": {"heterosexual": 0.892, "homosexual": 0.043, "bisexual": 0.043, "pansexual": 0.011, "asexual": 0.011},  # France
+    "Q183": {"heterosexual": 0.882, "homosexual": 0.043, "bisexual": 0.054, "pansexual": 0.011, "asexual": 0.011},  # Germany
+    "Q17":  {"heterosexual": 0.923, "homosexual": 0.022, "bisexual": 0.033, "pansexual": 0.011, "asexual": 0.011},  # Japan
+    "Q408": {"heterosexual": 0.880, "homosexual": 0.044, "bisexual": 0.055, "pansexual": 0.011, "asexual": 0.010},  # Australia
+    "Q16":  {"heterosexual": 0.880, "homosexual": 0.044, "bisexual": 0.055, "pansexual": 0.011, "asexual": 0.010},  # Canada
+    "Q38":  {"heterosexual": 0.913, "homosexual": 0.033, "bisexual": 0.033, "pansexual": 0.011, "asexual": 0.010},  # Italy
+    "Q96":  {"heterosexual": 0.858, "homosexual": 0.044, "bisexual": 0.065, "pansexual": 0.022, "asexual": 0.011},  # Mexico
+    "Q55":  {"heterosexual": 0.880, "homosexual": 0.055, "bisexual": 0.044, "pansexual": 0.011, "asexual": 0.010},  # Netherlands
+    "Q884": {"heterosexual": 0.935, "homosexual": 0.022, "bisexual": 0.022, "pansexual": 0.011, "asexual": 0.010},  # South Korea
+    "Q34":  {"heterosexual": 0.890, "homosexual": 0.044, "bisexual": 0.044, "pansexual": 0.011, "asexual": 0.011},  # Sweden
+    "Q414": {"heterosexual": 0.870, "homosexual": 0.044, "bisexual": 0.065, "pansexual": 0.011, "asexual": 0.010},  # Argentina
+    "Q298": {"heterosexual": 0.858, "homosexual": 0.044, "bisexual": 0.065, "pansexual": 0.022, "asexual": 0.011},  # Chile
+    "Q739": {"heterosexual": 0.848, "homosexual": 0.044, "bisexual": 0.065, "pansexual": 0.022, "asexual": 0.011},  # Colombia
+    "Q36":  {"heterosexual": 0.913, "homosexual": 0.022, "bisexual": 0.033, "pansexual": 0.011, "asexual": 0.010},  # Poland
+    "Q869": {"heterosexual": 0.835, "homosexual": 0.055, "bisexual": 0.077, "pansexual": 0.022, "asexual": 0.011},  # Thailand
+    "Q43":  {"heterosexual": 0.923, "homosexual": 0.022, "bisexual": 0.033, "pansexual": 0.011, "asexual": 0.011},  # Turkey
+}
+
+
+def ipsos_sexual_orientation_info(country_qid: str | None = None) -> dict[str, Any]:
+    """Returns source citation metadata for Ipsos sexual orientation statistics.
+
+    Returns dict containing source name, survey year(s), baseline type (country-specific or overall global),
+    and official source URL.
+    """
+    is_country_specific = country_qid is not None and country_qid in IPSOS_COUNTRY_SEXUAL_ORIENTATION_SHARES
+    return {
+        "source": "Ipsos LGBT+ Pride Survey",
+        "source_year": "2023",
+        "baseline_type": f"country-specific ({country_qid})" if is_country_specific else "overall global (30-country average)",
+        "is_country_specific": is_country_specific,
+        "country_qid": country_qid if is_country_specific else None,
+        "source_url": "https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey",
+    }
+
+
+def ipsos_sexual_orientation_shares(
+    country_qid: str | None = None,
+    by_qid: bool = False,
+) -> dict[str, float]:
+    """Returns expected sexual orientation population shares based on Ipsos LGBT+ Pride survey statistics.
+
+    Sources:
+    - Ipsos LGBT+ Pride 2023 Global Survey: https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey
+    - Ipsos LGBT+ Pride 2024 Global Survey: https://www.ipsos.com/en/lgbt-pride-2024
+
+    If country_qid is provided and found in Ipsos country statistics, returns country-specific shares;
+    otherwise returns Ipsos global baseline shares.
+
+    If by_qid is True, maps canonical categories back to raw Wikidata P91 QIDs.
+    """
+    base_shares = (
+        IPSOS_COUNTRY_SEXUAL_ORIENTATION_SHARES.get(country_qid, IPSOS_GLOBAL_SEXUAL_ORIENTATION_SHARES)
+        if country_qid
+        else IPSOS_GLOBAL_SEXUAL_ORIENTATION_SHARES
+    )
+
+    if not by_qid:
+        return dict(base_shares)
+
+    qid_shares: dict[str, float] = {}
+    for qid, cat in SEXUAL_ORIENTATION_CANONICAL_MAP.items():
+        if cat in base_shares:
+            qid_shares[qid] = base_shares[cat]
+    return qid_shares

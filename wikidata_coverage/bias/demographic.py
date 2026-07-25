@@ -92,6 +92,9 @@ class DemographicBalanceDetector(GroupShareDetector):
             return qid
 
         default_axis = PROPERTY_AXIS_NAMES.get(property_id, property_id)
+        if group_label_fn is None and property_id == "P172":
+            from wikidata_coverage.bias.ethnicity import ETHNICITY_LABELS, format_ethnicity_label
+            group_label_fn = lambda qid: format_ethnicity_label(qid, ETHNICITY_LABELS)
 
         super().__init__(
             axis=axis or default_axis,

@@ -57,7 +57,7 @@ Metrics funnel into a `BiasReport` with JSON, CSV, and chart-ready exports.
 | `GeographicDisparityDetector` | What fraction of biographies come from each country? | `geographic` | Static table, or live P1082 (population) via Wikidata SPARQL |
 | `DemographicBalanceDetector` | What fraction of the population holds each value of an arbitrary categorical property? | any PID | User-supplied |
 | `LinguisticCoverageDetector` | What fraction of entities have labels, descriptions, or aliases in each language? | `linguistic_label`, `linguistic_description`, `linguistic_alias` | Live P1098 (speaker count) via Wikidata SPARQL |
-| `SexualOrientationDetector` | What is the distribution of recorded P91 (sexual orientation) values? | `sexual_orientation` | Exploratory (no default baseline; optional study override) |
+| `SexualOrientationDetector` | What is the distribution of recorded P91 (sexual orientation) values? | `sexual_orientation` | Global and country-specific baselines from [Ipsos LGBT+ Pride 2023 Survey](https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey) & [2024 Survey](https://www.ipsos.com/en/lgbt-pride-2024) |
 | `RuralUrbanDetector` | What fraction of entities are born in urban vs. rural places (P19)? | `rural_urban` | Live P6343/P1082 urbanization split via Wikidata SPARQL |
 | `EthnicityBalanceDetector` | What is the distribution of recorded P172 (ethnic group) values? | `ethnicity` | Exploratory (optional cohort demographic override) |
 | `IntersectionalityDetector` | What is the representation across paired axes (e.g. nationality × gender, language × gender)? | `nationality_and_gender`, `language_and_gender`, `occupation_and_gender`, `ethnicity_and_gender` | Multiplicative $P(A \cap B) = P(A) \times P(B)$ from marginals, or explicit joint table |
@@ -246,7 +246,8 @@ The `wikidata_coverage.bias.baselines` module lazily loads population baselines 
 3. **`gender_population_shares(sparql, country_qid=None)`**: Queries P1539 (female) and P1540 (male) population counts globally or per country.
 4. **`urban_rural_world_shares(sparql)`**: Queries P6343 (urban population count/%) weighted by P1082 across countries or GHS dataset statistics.
 5. **`classify_places_by_type(sparql, place_qids)`**: Classifies a batch of birth place QIDs (P19) into `urban` vs `rural` based on their P31 instance-of values.
-6. **Spatial Setup**: Download `gadm_410-levels.zip` from GADM and extract to `data/gadm/` for administrative region boundary lookups.
+6. **`ipsos_sexual_orientation_shares(country_qid=None)`**: Global and country-specific sexual orientation population prevalence baselines derived from the official [Ipsos LGBT+ Pride 2023 Survey](https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey) and [Ipsos LGBT+ Pride 2024 Survey](https://www.ipsos.com/en/lgbt-pride-2024).
+7. **Spatial Setup**: Download `gadm_410-levels.zip` from GADM and extract to `data/gadm/` for administrative region boundary lookups.
 
 ---
 

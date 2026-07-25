@@ -49,7 +49,11 @@ class BiasReport:
             new_label = m.group_label
             for qid, label in label_map.items():
                 if label != qid:
-                    new_label = re.sub(rf"\b{qid}\b", label, new_label)
+                    if m.axis in ("ethnicity", "ethnicity_and_gender") or "ethnicity" in m.detector:
+                        pattern = rf"[^\(\)\n,]+\s*\({qid}\)|\b{qid}\b"
+                        new_label = re.sub(pattern, f"{label} ({qid})", new_label)
+                    else:
+                        new_label = re.sub(rf"\b{qid}\b", label, new_label)
             m.group_label = new_label
 
     def by_axis(self) -> dict[str, list[DisparityMetric]]:
@@ -58,13 +62,28 @@ class BiasReport:
             grouped[m.axis].append(m)
         return grouped
 
-    def most_disparate(self, axis: str | None = None, top_n: int = 10) -> list[DisparityMetric]:
+    def most_disparate(
+        self, axis: str | None = None, top_n: int = 10, max_ratio: float | None = None
+    ) -> list[DisparityMetric]:
         """Groups furthest from their expected baseline, most-underrepresented
         first. Only considers metrics that actually have a baseline to
-        compare against (disparity_ratio is not None)."""
+        compare against (disparity_ratio is not None).
+
+        If max_ratio is specified (e.g. 1.0), filters out groups with disparity_ratio >= max_ratio.
+        """
         pool = self.metrics if axis is None else self.by_axis().get(axis, [])
-        scored = [m for m in pool if m.disparity_ratio is not None]
+        scored = [
+            m for m in pool
+            if m.disparity_ratio is not None and (max_ratio is None or m.disparity_ratio < max_ratio)
+        ]
         return sorted(scored, key=lambda m: m.disparity_ratio)[:top_n]
+
+    def most_underrepresented(
+        self, axis: str | None = None, top_n: int = 10
+    ) -> list[DisparityMetric]:
+        """Groups with disparity_ratio < 1.0 (underrepresented relative to baseline),
+        most-underrepresented first."""
+        return self.most_disparate(axis=axis, top_n=top_n, max_ratio=1.0)
 
     def summary(self) -> dict[str, Any]:
         by_axis = self.by_axis()
@@ -80,7 +99,7 @@ class BiasReport:
                     "expected": m.expected_value,
                     "disparity_ratio": m.disparity_ratio,
                 }
-                for m in self.most_disparate(top_n=10)
+                for m in self.most_underrepresented(top_n=10)
             ],
         }
 

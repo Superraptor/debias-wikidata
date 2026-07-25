@@ -19,6 +19,7 @@ Explicit joint baselines can also be passed, or the detector can operate in expl
 
 from __future__ import annotations
 
+from collections import defaultdict
 import logging
 from typing import TYPE_CHECKING, Callable, Iterable
 
@@ -79,15 +80,19 @@ class IntersectionalityDetector(BiasDetector):
         self.extract_b = extract_b
         self.label_a = label_a or (lambda k: k)
         self.label_b = label_b or (lambda k: k)
+        self.expected_shares_a = expected_shares_a
+        self.expected_shares_b = expected_shares_b
         self.min_group_size = min_group_size
 
         if expected_joint_shares is not None:
             self.expected_joint_shares = expected_joint_shares
         elif expected_shares_a and expected_shares_b:
+            shares_a = expected_shares_a[0] if isinstance(expected_shares_a, tuple) else expected_shares_a
+            shares_b = expected_shares_b[0] if isinstance(expected_shares_b, tuple) else expected_shares_b
             # Estimate via independence: P(A and B) = P(A) * P(B)
             joint: dict[str, float] = {}
-            for ka, pa in expected_shares_a.items():
-                for kb, pb in expected_shares_b.items():
+            for ka, pa in shares_a.items():
+                for kb, pb in shares_b.items():
                     joint[f"{ka} x {kb}"] = round(pa * pb, 6)
             self.expected_joint_shares = joint
         else:
@@ -110,13 +115,80 @@ class IntersectionalityDetector(BiasDetector):
         if population_size == 0:
             return []
 
+        dynamic_expected: dict[str, float] = dict(self.expected_joint_shares)
+        calculation_explanations: dict[str, str] = {}
+
+        # 1. Handle nationality_and_sexual_orientation dynamically with country-specific Ipsos survey statistics
+        if getattr(self, "_is_nationality_sexual_orientation", False):
+            shares_a = self.expected_shares_a[0] if isinstance(self.expected_shares_a, tuple) else (self.expected_shares_a or {})
+            count_a: dict[str, int] = defaultdict(int)
+            for joint_key, members in groups.items():
+                c_qid, _ = joint_key.split(" x ", 1)
+                count_a[c_qid] += len(members)
+
+            for joint_key in groups:
+                c_qid, cat = joint_key.split(" x ", 1)
+                pa = shares_a.get(c_qid, count_a[c_qid] / population_size)
+                ipsos_map = _baselines.ipsos_sexual_orientation_shares(country_qid=c_qid, by_qid=False)
+                pb = ipsos_map.get(cat)
+                if pb:
+                    dynamic_expected[joint_key] = round(pa * pb, 6)
+                    is_cs = c_qid in _baselines.IPSOS_COUNTRY_SEXUAL_ORIENTATION_SHARES
+                    country_name = COUNTRY_LABELS.get(c_qid, c_qid)
+                    if is_cs:
+                        calculation_explanations[joint_key] = (
+                            f"Calculated via P(Country) × P(Sexual Orientation | Country) using country-specific Ipsos survey statistics for {country_name} ({c_qid})."
+                        )
+                    else:
+                        calculation_explanations[joint_key] = (
+                            f"Calculated via P(Country) × P(Sexual Orientation) using Ipsos 30-country global LGBT+ survey baseline."
+                        )
+
+        # 2. Handle generic expected_shares_b (e.g. gender or sexual_orientation)
+        elif self.expected_shares_b or self.expected_shares_a:
+            shares_a = self.expected_shares_a[0] if isinstance(self.expected_shares_a, tuple) else (self.expected_shares_a or {})
+            shares_b = self.expected_shares_b[0] if isinstance(self.expected_shares_b, tuple) else (self.expected_shares_b or {})
+            count_a: dict[str, int] = defaultdict(int)
+            for joint_key, members in groups.items():
+                ka, _ = joint_key.split(" x ", 1)
+                count_a[ka] += len(members)
+
+            for joint_key in groups:
+                ka, kb = joint_key.split(" x ", 1)
+                if joint_key not in dynamic_expected and shares_b:
+                    pb = shares_b.get(kb)
+                    if pb:
+                        if ka in shares_a:
+                            pa = shares_a[ka]
+                            dynamic_expected[joint_key] = round(pa * pb, 6)
+                            calculation_explanations[joint_key] = f"Calculated via P({self.axis.split('_and_')[0]}) × P({self.axis.split('_and_')[1]}) population baselines."
+                        else:
+                            pa = count_a[ka] / population_size
+                            dynamic_expected[joint_key] = round(pa * pb, 6)
+                            calculation_explanations[joint_key] = (
+                                f"Calculated via P(Sample Frequency of {self.axis.split('_and_')[0]}) × P({self.axis.split('_and_')[1]}) baseline "
+                                f"(no external baseline table for {self.label_a(ka)})."
+                            )
+                elif joint_key in dynamic_expected and joint_key not in calculation_explanations:
+                    calculation_explanations[joint_key] = f"Calculated via P({self.axis.split('_and_')[0]}) × P({self.axis.split('_and_')[1]}) population baselines."
+
         metrics: list[DisparityMetric] = []
         for joint_key, members in groups.items():
             ka, kb = joint_key.split(" x ", 1)
             label = f"{self.label_a(ka)} × {self.label_b(kb)}"
             observed_share = len(members) / population_size
-            expected = self.expected_joint_shares.get(joint_key)
+            expected = dynamic_expected.get(joint_key)
             ratio = (observed_share / expected) if expected else None
+
+            ev: dict[str, Any] = {"low_confidence": len(members) < self.min_group_size}
+            expl = calculation_explanations.get(joint_key)
+            if expl:
+                ev["calculation_explanation"] = expl
+                ev["baseline_note"] = expl
+
+            msg = self._message(label, observed_share, expected, len(members))
+            if expl and expected is not None:
+                msg += f" [{expl}]"
 
             metrics.append(
                 DisparityMetric(
@@ -130,8 +202,8 @@ class IntersectionalityDetector(BiasDetector):
                     expected_value=expected,
                     disparity_ratio=round(ratio, 4) if ratio is not None else None,
                     severity=disparity_severity(ratio),
-                    message=self._message(label, observed_share, expected, len(members)),
-                    evidence={"low_confidence": len(members) < self.min_group_size},
+                    message=msg,
+                    evidence=ev,
                 )
             )
 
@@ -183,10 +255,11 @@ def language_and_gender_detector(
 ) -> IntersectionalityDetector:
     """Preconfigured detector for Spoken Language (P1412) x Gender (P21)."""
     if sparql is not None:
-        lang_shares = _baselines.language_speaker_shares(sparql)
+        lang_shares, lang_names = _baselines.language_speaker_shares_by_qid(sparql)
         gender_shares = _baselines.gender_population_shares(sparql)
     else:
         lang_shares = None
+        lang_names = {}
         gender_shares = {"Q6581072": 0.5, "Q6581097": 0.5}
 
     return IntersectionalityDetector(
@@ -194,7 +267,7 @@ def language_and_gender_detector(
         name="language_and_gender_detector",
         extract_a=lambda e: _extract_single_qid(e, "P1412"),
         extract_b=gender_of,
-        label_a=lambda qid: qid,
+        label_a=lambda qid: lang_names.get(qid, qid),
         label_b=lambda qid: GENDER_LABELS.get(qid, qid),
         expected_shares_a=lang_shares,
         expected_shares_b=gender_shares,
@@ -203,9 +276,19 @@ def language_and_gender_detector(
 
 
 def occupation_and_gender_detector(
+    sparql: "SparqlClient | None" = None,
     min_group_size: int = 1,
 ) -> IntersectionalityDetector:
-    """Preconfigured detector for Occupation (P106) x Gender (P21). Exploratory baseline."""
+    """Preconfigured detector for Occupation (P106) x Gender (P21).
+
+    Uses sample occupation frequency combined with population gender baselines
+    (P1539/P1540 or 50/50 split) for expected values, as no global population baseline exists for occupations.
+    """
+    if sparql is not None:
+        gender_shares = _baselines.gender_population_shares(sparql)
+    else:
+        gender_shares = {"Q6581072": 0.5, "Q6581097": 0.5}
+
     return IntersectionalityDetector(
         axis="occupation_and_gender",
         name="occupation_and_gender_detector",
@@ -213,21 +296,86 @@ def occupation_and_gender_detector(
         extract_b=gender_of,
         label_a=lambda qid: qid,
         label_b=lambda qid: GENDER_LABELS.get(qid, qid),
+        expected_shares_b=gender_shares,
         min_group_size=min_group_size,
     )
 
 
 def ethnicity_and_gender_detector(
+    sparql: "SparqlClient | None" = None,
     min_group_size: int = 1,
 ) -> IntersectionalityDetector:
-    """Preconfigured detector for Ethnic Group (P172) x Gender (P21). Exploratory baseline."""
-    from wikidata_coverage.bias.ethnicity import ETHNICITY_LABELS
+    """Preconfigured detector for Ethnic Group (P172) x Gender (P21)."""
+    from wikidata_coverage.bias.ethnicity import ETHNICITY_LABELS, format_ethnicity_label
+
+    if sparql is not None:
+        ethnicity_shares = _baselines.ethnicity_expected_shares_timeline(sparql)
+        gender_shares = _baselines.gender_population_shares(sparql)
+    else:
+        ethnicity_shares = None
+        gender_shares = {"Q6581072": 0.5, "Q6581097": 0.5}
+
     return IntersectionalityDetector(
         axis="ethnicity_and_gender",
         name="ethnicity_and_gender_detector",
         extract_a=lambda e: _extract_single_qid(e, "P172"),
         extract_b=gender_of,
-        label_a=lambda qid: ETHNICITY_LABELS.get(qid, qid),
+        label_a=lambda qid: format_ethnicity_label(qid, ETHNICITY_LABELS),
         label_b=lambda qid: GENDER_LABELS.get(qid, qid),
+        expected_shares_a=ethnicity_shares,
+        expected_shares_b=gender_shares,
+        min_group_size=min_group_size,
+    )
+
+
+def nationality_and_sexual_orientation_detector(
+    sparql: "SparqlClient | None" = None,
+    min_group_size: int = 1,
+) -> IntersectionalityDetector:
+    """Preconfigured detector for Country of Citizenship (P27) x Sexual Orientation (P91)
+    using Ipsos country-specific survey statistics for surveyed countries, and global Ipsos stats for others."""
+    from wikidata_coverage.bias.sexual_orientation import _orientation_category_of
+
+    if sparql is not None:
+        country_shares = _baselines.country_population_shares(sparql)
+    else:
+        country_shares = None
+
+    detector = IntersectionalityDetector(
+        axis="nationality_and_sexual_orientation",
+        name="nationality_and_sexual_orientation_detector",
+        extract_a=lambda e: _extract_single_qid(e, "P27"),
+        extract_b=_orientation_category_of,
+        label_a=lambda qid: COUNTRY_LABELS.get(qid, qid),
+        label_b=lambda k: k,
+        expected_shares_a=country_shares,
+        min_group_size=min_group_size,
+    )
+    detector._is_nationality_sexual_orientation = True
+    return detector
+
+
+def sexual_orientation_and_gender_detector(
+    sparql: "SparqlClient | None" = None,
+    min_group_size: int = 1,
+) -> IntersectionalityDetector:
+    """Preconfigured detector for Sexual Orientation (P91) x Gender (P21)."""
+    from wikidata_coverage.bias.sexual_orientation import _orientation_category_of
+
+    global_orientation = _baselines.ipsos_sexual_orientation_shares(by_qid=False)
+    if sparql is not None:
+        gender_shares = _baselines.gender_population_shares(sparql)
+    else:
+        gender_shares = {"Q6581072": 0.5, "Q6581097": 0.5}
+
+    return IntersectionalityDetector(
+        axis="sexual_orientation_and_gender",
+        name="sexual_orientation_and_gender_detector",
+        extract_a=_orientation_category_of,
+        extract_b=gender_of,
+        label_a=lambda k: k,
+        label_b=lambda qid: GENDER_LABELS.get(qid, qid),
+        expected_shares_a=global_orientation,
+        expected_shares_b=gender_shares,
         min_group_size=min_group_size,
     )

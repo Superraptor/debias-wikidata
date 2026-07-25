@@ -1,5 +1,16 @@
 """Sexual orientation coverage: distribution of P91 (sexual orientation) values.
 
+Population Baselines & Sources
+-------------------------------
+Baseline expectations are derived from the official Ipsos LGBT+ Pride Global Surveys:
+* Ipsos LGBT+ Pride 2023 Global Survey (30-Country Report):
+  https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey
+* Ipsos LGBT+ Pride 2024 Global Survey:
+  https://www.ipsos.com/en/lgbt-pride-2024
+
+Both global averages and country-specific statistics (for surveyed countries such as Brazil,
+Spain, USA, UK, France, Germany, Japan, Australia, Canada, etc.) are available.
+
 IMPORTANT — what this detector measures and what it doesn't
 -----------------------------------------------------------
 It measures the **distribution of recorded values** among Wikidata entities
@@ -9,22 +20,6 @@ that *already have* P91 stated. It does **not**:
   attribute; Wikidata policy is that it should only be recorded where it is
   publicly stated by the person themselves. Absence of P91 is not a coverage
   gap to be reported.
-* Provide a built-in population-level baseline. Published prevalence estimates
-  vary widely by country, study methodology, year, and definition (LGB only?
-  LGBTQ+? self-identified vs. behaviour-based?). A single hardcoded default
-  would misrepresent this complexity.
-
-What it *does* do
------------------
-Surfaces the distribution of *recorded* P91 values within a sample so that:
-
-* Over- or under-representation of specific orientations among entities that
-  *do* have P91 recorded can be examined.
-* The rate at which P91 is recorded at all (vs. absent) is visible in context
-  with the broader entity population.
-
-A researcher can pass an explicit ``expected_shares`` override if they wish
-to compare against a specific study's estimates — see the docstring example.
 
 Note on P91 and Wikidata coverage quality
 -----------------------------------------
@@ -36,26 +31,33 @@ selection bias should be considered when interpreting the output.
 
 from __future__ import annotations
 
+from wikidata_coverage.bias import baselines
 from wikidata_coverage.bias.base import GroupShareDetector
 from wikidata_coverage.core.entity import Entity
 
 # Known P91 value QIDs and their human-readable labels.
-# This is not exhaustive — unlisted QIDs fall back to displaying the raw QID.
 ORIENTATION_LABELS: dict[str, str] = {
+    "Q1035954": "heterosexual",
     "Q1072": "heterosexual",
     "Q6636": "homosexual",
     "Q43200": "gay",
+    "Q1097630": "gay",
     "Q44748": "lesbian",
-    "Q1035954": "bisexual",
+    "Q747010": "lesbian",
+    "Q6649": "bisexual",
     "Q18116794": "asexual",
+    "Q724351": "asexual",
     "Q271534": "pansexual",
+    "Q272530": "pansexual",
     "Q1415741": "queer",
+    "Q18057751": "queer",
+    "Q212623": "non-heterosexuality",
     "Q26705162": "demisexual",
     "Q1097401": "polysexual",
 }
 
 
-def _orientation_of(entity: Entity) -> str | None:
+def _orientation_qid_of(entity: Entity) -> str | None:
     values = entity.values_for("P91")
     if not values:
         return None
@@ -63,49 +65,79 @@ def _orientation_of(entity: Entity) -> str | None:
     return v.get("id") if isinstance(v, dict) else None
 
 
+def _orientation_category_of(entity: Entity) -> str | None:
+    qid = _orientation_qid_of(entity)
+    if not qid:
+        return None
+    return baselines.SEXUAL_ORIENTATION_CANONICAL_MAP.get(qid, ORIENTATION_LABELS.get(qid, qid))
+
+
 class SexualOrientationDetector(GroupShareDetector):
     """Distribution of P91 (sexual orientation) values among entities that
     have this property explicitly recorded.
 
-    No default baseline is provided. Pass ``expected_shares`` explicitly if
-    you wish to compare against a specific study's population estimates::
+    By default, uses population statistics from the Ipsos LGBT+ Pride Global Surveys:
+    - 2023 Survey: https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey
+    - 2024 Survey: https://www.ipsos.com/en/lgbt-pride-2024
 
-        detector = SexualOrientationDetector(
-            expected_shares={
-                "Q1072": 0.95,    # heterosexual
-                "Q6636": 0.025,   # homosexual  } adjust to the specific study
-                "Q1035954": 0.02, # bisexual    } and its definitions
-                "Q18116794": 0.005, # asexual
-            }
-        )
-
-    Without ``expected_shares``, every group's ``disparity_ratio`` will be
-    ``None`` (exploratory mode only — observed distribution is reported but
-    not compared against any baseline).
+    Supports both global 30-country averages and country-specific baselines
+    (e.g., country_qid="Q155" for Brazil, country_qid="Q30" for USA).
+    Categories can be grouped canonically (e.g. gay/lesbian/homosexual → "homosexual")
+    or evaluated by raw QID.
     """
 
     def __init__(
         self,
+        country_qid: str | None = None,
+        use_ipsos_baselines: bool = True,
+        group_by_category: bool = True,
         expected_shares: dict[str, float] | None = None,
         label_overrides: dict[str, str] | None = None,
         min_group_size: int = 1,
     ) -> None:
         """
         Args:
-            expected_shares: optional population-level prevalence dict,
-                keyed by P91 value QID. No built-in default; see module
-                docstring for the rationale.
-            label_overrides: additional ``{qid: label}`` entries to merge
-                with (or override) the built-in ``ORIENTATION_LABELS`` table.
-            min_group_size: groups smaller than this are flagged as
-                low-confidence in their evidence dict.
+            country_qid: optional country QID (e.g. Q30 for USA, Q155 for Brazil) to load
+                country-specific Ipsos survey statistics.
+            use_ipsos_baselines: if True (default), populates expected_shares using Ipsos statistics.
+            group_by_category: if True (default), groups related QIDs into canonical orientation categories.
+            expected_shares: explicit prevalence dict override.
+            label_overrides: additional ``{qid: label}`` entries to merge with ORIENTATION_LABELS.
+            min_group_size: groups smaller than this are flagged as low-confidence.
         """
         labels = {**ORIENTATION_LABELS, **(label_overrides or {})}
+        self.country_qid = country_qid
+        self.baseline_info = baselines.ipsos_sexual_orientation_info(country_qid)
+
+        if expected_shares is None and use_ipsos_baselines:
+            expected_shares = baselines.ipsos_sexual_orientation_shares(
+                country_qid=country_qid,
+                by_qid=not group_by_category,
+            )
+
+        group_fn = _orientation_category_of if group_by_category else _orientation_qid_of
+        group_label_fn = (lambda k: k) if group_by_category else (lambda qid: labels.get(qid, qid))
+
         super().__init__(
             axis="sexual_orientation",
             name="sexual_orientation_detector",
-            group_fn=_orientation_of,
-            group_label_fn=lambda qid: labels.get(qid, qid),
+            group_fn=group_fn,
+            group_label_fn=group_label_fn,
             expected_shares=expected_shares or {},
             min_group_size=min_group_size,
         )
+
+    def run(self, entities: Iterable[Entity]) -> list[DisparityMetric]:
+        metrics = super().run(entities)
+        for m in metrics:
+            m.evidence.update(self.baseline_info)
+        return metrics
+
+    def _message(self, key: str, observed: float, expected: float | None, n: int) -> str:
+        base_msg = super()._message(key, observed, expected, n)
+        if expected is not None:
+            source = self.baseline_info["source"]
+            year = self.baseline_info["source_year"]
+            b_type = self.baseline_info["baseline_type"]
+            return f"{base_msg} [Source: {source} ({year}), {b_type}]"
+        return base_msg
