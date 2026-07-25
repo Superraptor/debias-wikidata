@@ -34,6 +34,7 @@ logger = logging.getLogger(__name__)
 # Module-level caches — None means "not yet fetched for this process"
 # ---------------------------------------------------------------------------
 _language_shares: dict[str, float] | None = None
+_language_names: dict[str, str] | None = None
 _country_shares: dict[str, float] | None = None
 _gender_shares: dict[str, dict[str, float]] = {}   # keyed by country_qid or "world"
 _urban_rural_shares: dict[str, float] | None = None
@@ -56,70 +57,88 @@ from wikidata_coverage.access.cache import get_cached_json, save_cached_json
 
 def language_speaker_shares(
     sparql: "SparqlClient",
-    top_n: int = 50,
-    min_speakers: int = 1_000_000,
+    top_n: int | None = None,
+    min_speakers: int = 0,
     force_refresh: bool = False,
-) -> dict[str, float]:
-    """ISO 639-1 language code → share of global speaker population.
+) -> tuple[dict[str, float], dict[str, str]]:
+    """ISO 639-1 / Wikimedia language code → share of global speaker population and map of language names.
 
-    Queries P1098 (number of speakers) on natural-language Wikidata items
-    that also carry a P218 (ISO 639-1) code. Languages without a P218 code
-    are excluded because ``Entity.labels`` / ``.descriptions`` / ``.aliases``
-    are keyed by ISO code.
+    Queries P1098 (number of speakers) on all natural-language Wikidata items
+    carrying a P218 (ISO 639-1) or P424 (Wikimedia language code).
 
     Args:
         sparql: live SPARQL client.
-        top_n: how many languages (ranked by speaker count) to include.
-        min_speakers: languages below this threshold are excluded entirely.
+        top_n: optional cap on number of languages (ranked by speaker count). If None or <= 0, includes all languages with speaker data.
+        min_speakers: minimum speakers threshold (default 0 for all languages with speaker data).
         force_refresh: bypass the module-level and disk caches to re-query.
 
     Returns:
-        ``{iso_code: share}`` normalized to sum ≈ 1.0, or ``{}`` on failure.
+        ( {lang_code: share}, {lang_code: language_name} )
     """
-    global _language_shares
-    if _language_shares is not None and not force_refresh:
-        return _language_shares
+    global _language_shares, _language_names
+    if _language_shares is None or _language_names is None or force_refresh:
+        cache_shares_key = "cache_language_shares_all.json"
+        cache_names_key = "cache_language_names_all.json"
 
-    cache_key = f"cache_language_shares_top{top_n}.json"
-    if not force_refresh:
-        cached = get_cached_json(cache_key)
-        if isinstance(cached, dict) and cached:
-            _language_shares = cached
-            return _language_shares
+        cached_shares = None if force_refresh else get_cached_json(cache_shares_key)
+        cached_names = None if force_refresh else get_cached_json(cache_names_key)
 
-    query = f"""
-    SELECT ?langCode (MAX(?speakers) AS ?maxSpeakers) WHERE {{
-      ?lang wdt:P218 ?langCode ;
-            wdt:P1098 ?speakers .
-      FILTER(?speakers >= {min_speakers})
-    }}
-    GROUP BY ?langCode
-    ORDER BY DESC(?maxSpeakers)
-    LIMIT {top_n}
-    """
+        if isinstance(cached_shares, dict) and cached_shares and isinstance(cached_names, dict) and cached_names:
+            _language_shares = cached_shares
+            _language_names = cached_names
+        else:
+            query = f"""
+            SELECT ?langCode ?langLabel (MAX(?speakers) AS ?maxSpeakers) WHERE {{
+              {{ ?lang wdt:P218 ?langCode . ?lang wdt:P1098 ?speakers . }}
+              UNION
+              {{ ?lang wdt:P424 ?langCode . ?lang wdt:P1098 ?speakers . }}
+              FILTER(?speakers > {min_speakers})
+              SERVICE wikibase:label {{ bd:serviceParam wikibase:language "en". }}
+            }}
+            GROUP BY ?langCode ?langLabel
+            ORDER BY DESC(?maxSpeakers)
+            """
 
-    try:
-        rows = sparql.query(query)
-    except Exception as exc:
-        logger.warning("language_speaker_shares: SPARQL failed — %s. Returning empty.", exc)
-        _language_shares = {}
-        return {}
-
-    raw: dict[str, float] = {}
-    for row in rows:
-        code = row.get("langCode")
-        speakers = row.get("maxSpeakers", 0)
-        if code:
             try:
-                raw[code] = float(speakers)
-            except (ValueError, TypeError):
-                pass
+                rows = sparql.query(query)
+            except Exception as exc:
+                logger.warning("language_speaker_shares: SPARQL failed — %s. Returning empty.", exc)
+                return {}, {}
 
-    _language_shares = _normalize(raw)
-    if _language_shares:
-        save_cached_json(cache_key, _language_shares)
-    logger.info("Loaded speaker shares for %d languages.", len(_language_shares))
-    return _language_shares
+            raw_counts: dict[str, float] = {}
+            names: dict[str, str] = {}
+            for row in rows:
+                code = row.get("langCode")
+                label = row.get("langLabel")
+                speakers = row.get("maxSpeakers", 0)
+                if code:
+                    try:
+                        spk = float(speakers)
+                        if spk > 0:
+                            if code not in raw_counts or spk > raw_counts[code]:
+                                raw_counts[code] = spk
+                                if label and label != code:
+                                    names[code] = label
+                    except (ValueError, TypeError):
+                        pass
+
+            _language_shares = _normalize(raw_counts)
+            _language_names = names
+
+            if _language_shares:
+                save_cached_json(cache_shares_key, _language_shares)
+                save_cached_json(cache_names_key, _language_names)
+
+    shares = _language_shares or {}
+    names = _language_names or {}
+
+    if top_n and top_n > 0 and len(shares) > top_n:
+        sorted_codes = sorted(shares.keys(), key=lambda k: shares[k], reverse=True)[:top_n]
+        top_shares = {c: shares[c] for c in sorted_codes}
+        top_names = {c: names[c] for c in sorted_codes if c in names}
+        return top_shares, top_names
+
+    return shares, names
 
 
 # ---------------------------------------------------------------------------

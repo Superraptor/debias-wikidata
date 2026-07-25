@@ -73,30 +73,34 @@ class LinguisticCoverageDetector(BiasDetector):
     def __init__(
         self,
         sparql: "SparqlClient",
-        top_n_languages: int = 30,
-        min_speakers: int = 1_000_000,
+        top_n_languages: int | None = None,
+        min_speakers: int = 0,
         coverage_types: tuple[str, ...] = ("label", "description", "alias"),
         force_refresh: bool = False,
     ) -> None:
         """
         Args:
             sparql: SPARQL client used to fetch the speaker-population baseline.
-            top_n_languages: number of languages (ranked by speaker count) to
-                include in the baseline. Languages outside the top-N are still
-                reported if present in entity data, but with no expected_value.
+            top_n_languages: retained for backwards compatibility; all languages
+                with speaker data are loaded by default.
             min_speakers: languages below this speaker threshold are excluded
-                from the baseline. Default (1 M) keeps the set tractable.
+                from the baseline (default 0 for all languages with speaker data).
             coverage_types: which metadata axes to measure. Any subset of
                 ``("label", "description", "alias")``.
             force_refresh: bypass the module-level speaker-share cache.
         """
         self.coverage_types = [ct for ct in coverage_types if ct in COVERAGE_AXES]
-        self._speaker_shares: dict[str, float] = _baselines.language_speaker_shares(
+        res = _baselines.language_speaker_shares(
             sparql,
             top_n=top_n_languages,
             min_speakers=min_speakers,
             force_refresh=force_refresh,
         )
+        if isinstance(res, tuple):
+            self._speaker_shares, self._language_names = res
+        else:
+            self._speaker_shares, self._language_names = res, {}
+
         if not self._speaker_shares:
             logger.warning(
                 "LinguisticCoverageDetector: no speaker shares loaded from Wikidata. "
@@ -120,6 +124,8 @@ class LinguisticCoverageDetector(BiasDetector):
         metrics: list[DisparityMetric] = []
         for lang in sorted(candidate_langs):
             expected = self._speaker_shares.get(lang)
+            name = self._language_names.get(lang)
+            group_label = f"{lang} ({name})" if name and name != lang else lang
 
             for ctype in self.coverage_types:
                 covered = self._count_covered(entity_list, lang, ctype)
@@ -131,14 +137,14 @@ class LinguisticCoverageDetector(BiasDetector):
                         axis=COVERAGE_AXES[ctype],
                         detector=self.name,
                         group_key=lang,
-                        group_label=lang,
+                        group_label=group_label,
                         population_size=n,
                         group_size=covered,
                         observed_value=observed,
                         expected_value=expected,
                         disparity_ratio=ratio,
                         severity=disparity_severity(ratio),
-                        message=self._message(lang, ctype, observed, expected, covered, n),
+                        message=self._message(group_label, ctype, observed, expected, covered, n),
                         evidence={
                             "coverage_type": ctype,
                             "in_baseline": expected is not None,
@@ -170,10 +176,11 @@ class LinguisticCoverageDetector(BiasDetector):
         base = (
             f"{lang} {ctype} coverage: {covered}/{total} entities ({observed:.1%})"
         )
-        if expected is None:
+        if expected is None or expected <= 0:
             return f"{base} — no speaker-population baseline available."
         direction = "over" if observed > expected else "under"
+        ratio = round(observed / expected, 2)
         return (
             f"{base} vs. {expected:.1%} speaker-population share "
-            f"— {direction}served (ratio {observed/expected:.2f})."
+            f"— {direction}served (ratio {ratio:.2f})."
         )

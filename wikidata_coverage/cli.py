@@ -331,7 +331,7 @@ def bias_demographic(
 @click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
 @click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @scope_filter_options
-@click.option("--top-languages", default=30, show_default=True, help="Number of languages by speaker count to fetch for baseline")
+@click.option("--top-languages", default=None, type=int, help="Optional: limit baseline evaluation to top N languages by speaker count (e.g. --top-languages 30)")
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
 def bias_linguistic(
     class_qid: str,
@@ -340,7 +340,7 @@ def bias_linguistic(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
-    top_languages: int,
+    top_languages: int | None,
     out_path: str | None,
 ) -> None:
     """Measure multilingual label, description, and alias coverage vs. speaker population."""
