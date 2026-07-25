@@ -8,8 +8,10 @@ import json
 from collections import defaultdict
 from dataclasses import dataclass, field
 from io import StringIO
+import re
 from typing import Any
 
+from wikidata_coverage.access.api import ActionApiClient
 from wikidata_coverage.core.finding import Finding
 
 
@@ -75,14 +77,55 @@ class CoverageReport:
             grouped[f.detector].append(f)
         return grouped
 
-    def worst_entities(self, n: int = 10) -> list[dict[str, Any]]:
+    def worst_entities(
+        self, n: int = 10, lang: str = "en", api_client: ActionApiClient | None = None
+    ) -> list[dict[str, Any]]:
         """Return top N entities sorted descending by cumulative issue severity score.
 
-        Ranking Criteria:
-            Entities are scored by summing the severity of all findings associated with them
-            (higher score = more or more severe issues).
+        Enriches suggested properties and recommendations with human-readable labels
+        in the specified language (default 'en').
         """
         entity_scores = self.by_entity()
+
+        # Collect all QIDs / PIDs for label fetching
+        all_ids: set[str] = set()
+        for qid, es in entity_scores.items():
+            all_ids.add(qid)
+            for f in es.findings:
+                if f.property_id:
+                    all_ids.add(f.property_id)
+                if f.suggested_fix:
+                    if f.suggested_fix.description:
+                        for m in re.findall(r"\b([PQ]\d+)\b", f.suggested_fix.description):
+                            all_ids.add(m)
+
+        labels: dict[str, str] = {}
+        if all_ids:
+            try:
+                api = api_client or ActionApiClient()
+                labels = api.get_labels(list(all_ids), lang=lang)
+            except Exception:
+                labels = {}
+
+        def enrich_text(text: str) -> str:
+            def replace_in_parens(match: re.Match) -> str:
+                qid_pid = match.group(1)
+                lbl = labels.get(qid_pid)
+                if lbl and lbl != qid_pid:
+                    return f"({qid_pid}: {lbl})"
+                return f"({qid_pid})"
+
+            text_proc = re.sub(r"\(([PQ]\d+)\)", replace_in_parens, text)
+
+            def replace_standalone(match: re.Match) -> str:
+                qid_pid = match.group(1)
+                lbl = labels.get(qid_pid)
+                if lbl and lbl != qid_pid:
+                    return f"{qid_pid} ({lbl})"
+                return qid_pid
+
+            return re.sub(r"\b([PQ]\d+)\b(?!\s*:\s*)", replace_standalone, text_proc)
+
         res = []
         for qid, es in entity_scores.items():
             suggestions = []
@@ -90,18 +133,35 @@ class CoverageReport:
             suggested_props = []
 
             for f in es.findings:
-                if f.property_id and f.property_id not in suggested_props:
-                    suggested_props.append(f.property_id)
+                if f.property_id:
+                    prop_lbl = labels.get(f.property_id)
+                    prop_str = (
+                        f"{f.property_id} ({prop_lbl})"
+                        if prop_lbl and prop_lbl != f.property_id
+                        else f.property_id
+                    )
+                    if prop_str not in suggested_props:
+                        suggested_props.append(prop_str)
+
                 if f.suggested_fix:
-                    if f.suggested_fix.description and f.suggested_fix.description not in suggestions:
-                        suggestions.append(f.suggested_fix.description)
-                    if f.suggested_fix.quickstatements and f.suggested_fix.quickstatements not in quickstatements:
+                    if f.suggested_fix.description:
+                        enriched_desc = enrich_text(f.suggested_fix.description)
+                        if enriched_desc not in suggestions:
+                            suggestions.append(enriched_desc)
+                    if (
+                        f.suggested_fix.quickstatements
+                        and f.suggested_fix.quickstatements not in quickstatements
+                    ):
                         quickstatements.append(f.suggested_fix.quickstatements)
+
+            entity_lbl = es.label
+            if entity_lbl == qid and qid in labels:
+                entity_lbl = labels[qid]
 
             res.append(
                 {
                     "entity_id": qid,
-                    "entity_label": es.label,
+                    "entity_label": entity_lbl,
                     "score": es.score,
                     "n_findings": len(es.findings),
                     "suggested_properties": suggested_props,
@@ -112,7 +172,9 @@ class CoverageReport:
 
         return sorted(res, key=lambda x: x["score"], reverse=True)[:n]
 
-    def summary(self) -> dict[str, Any]:
+    def summary(
+        self, lang: str = "en", api_client: ActionApiClient | None = None
+    ) -> dict[str, Any]:
         entity_scores = self.by_entity()
         return {
             "total_findings": len(self.findings),
@@ -123,7 +185,7 @@ class CoverageReport:
                 "Cumulative finding severity score (sum of individual finding severities per entity; "
                 "higher score indicates worse coverage or constraint violations)"
             ),
-            "worst_entities": self.worst_entities(10),
+            "worst_entities": self.worst_entities(10, lang=lang, api_client=api_client),
         }
 
     def to_json(self, indent: int = 2) -> str:

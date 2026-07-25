@@ -178,8 +178,9 @@ def main() -> None:
 @click.option("--property", "properties", multiple=True, required=False, callback=validate_pid_option, help="PID(s) to constraint-check (omitting checks all properties on sampled entities)")
 @click.option("--limit", default=100, show_default=True, callback=validate_limit_option, help="Max entities to pull for the class")
 @click.option("--include-fictional", is_flag=True, default=False, help="Include fictional entities/characters in constraint checks (excluded by default)")
+@click.option("--lang", "--language", "lang", default="en", show_default=True, help="Language code for property and entity labels (e.g. en, fr, de, es, ja)")
 @click.option("--out", "out_path", default=None, help="Write JSON report to this path instead of stdout")
-def constraints(class_qid: str, properties: tuple[str, ...], limit: int, include_fictional: bool, out_path: str | None) -> None:
+def constraints(class_qid: str, properties: tuple[str, ...], limit: int, include_fictional: bool, lang: str, out_path: str | None) -> None:
     """Run constraint-based detection over items of a given class."""
     exclude_fictional = not include_fictional
     entities = _fetch_class_entities(class_qid, limit, exclude_fictional=exclude_fictional)
@@ -191,15 +192,16 @@ def constraints(class_qid: str, properties: tuple[str, ...], limit: int, include
 
     report = CoverageReport()
     report.add(findings)
-    _emit_coverage(report, out_path)
+    _emit_coverage(report, out_path, lang=lang)
 
 
 @main.command(name="class-profile")
 @click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class to scope to, e.g. Q5")
 @click.option("--limit", default=200, show_default=True, callback=validate_limit_option, help="Max entities to pull for the class")
 @click.option("--threshold", default=0.8, show_default=True, help="Peer-frequency threshold")
+@click.option("--lang", "--language", "lang", default="en", show_default=True, help="Language code for property and entity labels (e.g. en, fr, de, es, ja)")
 @click.option("--out", "out_path", default=None, help="Write JSON report to this path instead of stdout")
-def class_profile(class_qid: str, limit: int, threshold: float, out_path: str | None) -> None:
+def class_profile(class_qid: str, limit: int, threshold: float, lang: str, out_path: str | None) -> None:
     """Run class-profile (peer statistical) detection over items of a given class."""
     entities = _fetch_class_entities(class_qid, limit)
     detector = ClassProfileDetector(frequency_threshold=threshold)
@@ -209,7 +211,7 @@ def class_profile(class_qid: str, limit: int, threshold: float, out_path: str | 
 
     report = CoverageReport()
     report.add(findings)
-    _emit_coverage(report, out_path)
+    _emit_coverage(report, out_path, lang=lang)
 
 
 # ---------------------------------------------------------------------------
@@ -555,14 +557,14 @@ def bias_all(
 # Internal helpers
 # ---------------------------------------------------------------------------
 
-def _emit_coverage(report: CoverageReport, out_path: str | None) -> None:
+def _emit_coverage(report: CoverageReport, out_path: str | None, lang: str = "en") -> None:
     if out_path:
         with open(out_path, "w") as f:
             f.write(report.to_json())
         console.print(f"[green]Report written to {out_path}[/green]")
         return
 
-    summary = report.summary()
+    summary = report.summary(lang=lang)
     table = Table(title="Coverage Report Summary")
     table.add_column("Metric")
     table.add_column("Value")

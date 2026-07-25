@@ -15,6 +15,11 @@ def make_finding(
     )
 
 
+class DummyApiClient:
+    def get_labels(self, qids, lang="en"):
+        return {}
+
+
 def test_by_entity_groups_and_scores():
     report = CoverageReport()
     report.add(
@@ -41,7 +46,7 @@ def test_summary_worst_entities_sorted_desc():
             make_finding("Q3", 0.5),
         ]
     )
-    summary = report.summary()
+    summary = report.summary(api_client=DummyApiClient())
     assert "scoring_criteria" in summary
     worst = summary["worst_entities"]
     ids_in_order = [row["entity_id"] for row in worst]
@@ -58,10 +63,45 @@ def test_worst_entities_method():
             make_finding("Q20", 0.4, entity_label="Beta"),
         ]
     )
-    worst = report.worst_entities(n=1)
+    worst = report.worst_entities(n=1, api_client=DummyApiClient())
     assert len(worst) == 1
     assert worst[0]["entity_id"] == "Q10"
     assert worst[0]["entity_label"] == "Alpha"
+
+
+def test_worst_entities_enrichment_with_language():
+    from wikidata_coverage.core.finding import SuggestedFix
+
+    class LabelApiClient:
+        def get_labels(self, qids, lang="en"):
+            if lang == "fr":
+                return {
+                    "P569": "date de naissance",
+                    "Q10": "Albert Einstein",
+                }
+            return {
+                "P569": "date of birth",
+                "Q10": "Albert Einstein",
+            }
+
+    report = CoverageReport()
+    report.add(
+        [
+            Finding(
+                entity_id="Q10",
+                entity_label=None,
+                kind=FindingKind.MISSING_STATEMENT,
+                detector="d1",
+                property_id="P569",
+                message="Missing P569",
+                suggested_fix=SuggestedFix(description="Add P569 to Q10.", quickstatements="Q10|P569|<VALUE>"),
+            )
+        ]
+    )
+    worst = report.worst_entities(n=1, lang="fr", api_client=LabelApiClient())
+    assert worst[0]["entity_label"] == "Albert Einstein"
+    assert worst[0]["suggested_properties"] == ["P569 (date de naissance)"]
+    assert worst[0]["suggestions"] == ["Add P569 (date de naissance) to Q10 (Albert Einstein)."]
 
 
 def test_to_json_roundtrip_contains_findings():
