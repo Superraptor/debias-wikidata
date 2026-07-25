@@ -1,7 +1,8 @@
 """HTML Demo Report Generator for Debias-Wikidata.
 
 Generates a single-file, interactive HTML report with Chart.js visualizations,
-demographic tabs, search/filter functionality, data sourcing methodology, and baseline provenance.
+demographic tabs, search/filter functionality, paginated entity/metric views,
+default under-to-overrepresented table & chart sorting, data sourcing methodology, and baseline provenance.
 """
 
 from __future__ import annotations
@@ -182,14 +183,21 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             display: block;
         }
 
-        .chart-container {
+        .chart-scroll-wrapper {
             background: var(--bg-card);
             border: 1px solid var(--border-color);
             border-radius: 0.75rem;
             padding: 1.5rem;
             margin-bottom: 2rem;
-            height: 420px;
+            max-height: 520px;
+            overflow-y: auto;
             position: relative;
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            min-height: 400px;
         }
 
         /* Controls / Search */
@@ -217,6 +225,16 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             border-color: var(--accent-indigo);
         }
 
+        .select-control {
+            background: #0f172a;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.6rem 1rem;
+            border-radius: 0.5rem;
+            font-size: 0.9rem;
+            cursor: pointer;
+        }
+
         /* Table */
         .data-table-wrapper {
             background: var(--bg-card);
@@ -241,6 +259,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             text-transform: uppercase;
             font-size: 0.75rem;
             letter-spacing: 0.05em;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        th:hover {
+            color: var(--accent-cyan);
         }
 
         td {
@@ -269,6 +293,38 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         .sev-under-mod { background: rgba(245, 158, 11, 0.2); color: #f59e0b; border: 1px solid rgba(245, 158, 11, 0.4); }
         .sev-balanced { background: rgba(16, 185, 129, 0.2); color: #10b981; border: 1px solid rgba(16, 185, 129, 0.4); }
         .sev-over { background: rgba(99, 102, 241, 0.2); color: #818cf8; border: 1px solid rgba(99, 102, 241, 0.4); }
+        .sev-unknown { background: rgba(148, 163, 184, 0.2); color: #94a3b8; border: 1px solid rgba(148, 163, 184, 0.4); }
+
+        /* Pagination */
+        .pagination-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 1rem;
+            background: rgba(15, 23, 42, 0.6);
+            border-top: 1px solid var(--border-color);
+            gap: 1rem;
+            flex-wrap: wrap;
+        }
+
+        .page-btn {
+            background: #1e293b;
+            border: 1px solid var(--border-color);
+            color: var(--text-main);
+            padding: 0.4rem 0.8rem;
+            border-radius: 0.375rem;
+            cursor: pointer;
+            font-size: 0.85rem;
+        }
+
+        .page-btn:disabled {
+            opacity: 0.4;
+            cursor: not-allowed;
+        }
+
+        .page-btn:not(:disabled):hover {
+            background: var(--accent-indigo);
+        }
     </style>
 </head>
 <body>
@@ -349,7 +405,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                         Ethnicity and language speaker baselines incorporate temporal interpolation and speaker counts:
                     </p>
                     <ul style="font-size: 0.85rem; color: var(--text-muted); margin-left: 1.25rem; margin-top: 0.5rem; line-height: 1.6;">
-                        <li><strong>Ethnicity Population Timeline:</strong> <a href="https://www.wikidata.org/wiki/Property:P172" target="_blank" style="color: var(--accent-indigo); text-decoration: underline;">P172 (Ethnic Group)</a> statements with <a href="https://www.wikidata.org/wiki/Property:P1082" target="_blank" style="color: var(--accent-indigo); text-decoration: underline;">P1082</a> (Population) & <a href="https://www.wikidata.org/wiki/Property:P585" target="_blank" style="color: var(--accent-indigo); text-decoration: underline;">P585 (Point in Time)</a> are interpolated against <a href="https://ourworldindata.org/world-population-growth" target="_blank" style="color: var(--accent-indigo); text-decoration: underline;">Our World in Data historical world population benchmarks</a>.</li>
+                        <li><strong>Ethnicity Population Timeline:</strong> <a href="https://www.wikidata.org/wiki/Property:P172" target="_blank" style="color: var(--accent-indigo); text-decoration: underline;">P172 (Ethnic Group)</a> statements with <a href="https://www.wikidata.org/wiki/Property:P1082" target="_blank" style="color: var(--accent-indigo); text-decoration: underline;">P1082 (Population)</a> & <a href="https://www.wikidata.org/wiki/Property:P585" target="_blank" style="color: var(--accent-indigo); text-decoration: underline;">P585 (Point in Time)</a> are interpolated against <a href="https://ourworldindata.org/world-population-growth" target="_blank" style="color: var(--accent-indigo); text-decoration: underline;">Our World in Data historical world population benchmarks</a>.</li>
                         <li><strong>Linguistic Speaker Share:</strong> <a href="https://www.wikidata.org/wiki/Property:P1098" target="_blank" style="color: var(--accent-indigo); text-decoration: underline;">P1098 (Number of Speakers)</a> on language items (<code style="background: rgba(255,255,255,0.1); padding: 0.1rem 0.3rem; border-radius: 0.2rem;">P218</code> / <code style="background: rgba(255,255,255,0.1); padding: 0.1rem 0.3rem; border-radius: 0.2rem;">P424</code>).</li>
                     </ul>
                 </div>
@@ -373,6 +429,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <script>
         const payload = {{JSON_PAYLOAD}};
         let charts = {};
+        let tableState = {}; // { axis: { sortKey: 'ratio', sortAsc: true, search: '', page: 1, pageSize: 50 } }
 
         function initDashboard() {
             const tabsWrapper = document.getElementById("tabsWrapper");
@@ -380,8 +437,11 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
             const axes = Object.keys(payload.axis_data);
 
+            // Add Main Tab for All Measurements
+            axes.unshift("all_measurements");
+
             axes.forEach((axis, index) => {
-                const prettyTitle = formatAxisTitle(axis);
+                const prettyTitle = axis === "all_measurements" ? "📋 Main Sub-Populations" : formatAxisTitle(axis);
 
                 // Tab Button
                 const btn = document.createElement("button");
@@ -390,46 +450,134 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 btn.onclick = () => switchTab(axis);
                 tabsWrapper.appendChild(btn);
 
+                // Initialize table state
+                tableState[axis] = {
+                    sortKey: 'ratio',
+                    sortAsc: true,
+                    search: '',
+                    page: 1,
+                    pageSize: 50
+                };
+
                 // Tab Content View
                 const contentDiv = document.createElement("div");
                 contentDiv.id = `tab-${axis}`;
                 contentDiv.className = `tab-content ${index === 0 ? 'active' : ''}`;
 
-                contentDiv.innerHTML = `
-                    <div class="chart-container">
-                        <canvas id="chart-${axis}"></canvas>
-                    </div>
-                    <div class="controls-bar">
-                        <h3 style="font-size: 1.1rem; font-weight: 600;">Sub-Population Measurements</h3>
-                        <input type="text" class="search-input" placeholder="Search group label, QID or notes..." oninput="filterTable('${axis}', this.value)">
-                    </div>
-                    <div class="data-table-wrapper">
-                        <table id="table-${axis}">
-                            <thead>
-                                <tr>
-                                    <th>Group</th>
-                                    <th>N</th>
-                                    <th>Observed Share</th>
-                                    <th>Expected Share</th>
-                                    <th>Disparity Ratio</th>
-                                    <th>Status</th>
-                                    <th>Calculation & Baseline Source</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${renderTableRows(payload.axis_data[axis])}
-                            </tbody>
-                        </table>
-                    </div>
-                `;
+                if (axis === "all_measurements") {
+                    contentDiv.innerHTML = `
+                        <div class="controls-bar">
+                            <h3 style="font-size: 1.1rem; font-weight: 600;">Main Measured Sub-Populations (Sorted: Most Underrepresented First)</h3>
+                            <div style="display: flex; gap: 0.75rem; align-items: center;">
+                                <input type="text" class="search-input" placeholder="Search group label, QID or notes..." oninput="updateTable('all_measurements', {search: this.value, page: 1})">
+                                <select class="select-control" onchange="updateTable('all_measurements', {pageSize: parseInt(this.value), page: 1})">
+                                    <option value="25">25 per page</option>
+                                    <option value="50" selected>50 per page</option>
+                                    <option value="100">100 per page</option>
+                                    <option value="250">250 per page</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="data-table-wrapper">
+                            <table id="table-all_measurements">
+                                <thead>
+                                    <tr>
+                                        <th onclick="toggleSort('all_measurements', 'label')">Group / Axis ↕</th>
+                                        <th onclick="toggleSort('all_measurements', 'group_size')">N ↕</th>
+                                        <th onclick="toggleSort('all_measurements', 'observed')">Observed ↕</th>
+                                        <th onclick="toggleSort('all_measurements', 'expected')">Expected ↕</th>
+                                        <th onclick="toggleSort('all_measurements', 'ratio')">Ratio (Most Underrepresented First) ↕</th>
+                                        <th onclick="toggleSort('all_measurements', 'severity')">Status ↕</th>
+                                        <th>Calculation & Baseline Source</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                            <div class="pagination-bar" id="pagination-all_measurements"></div>
+                        </div>
+                    `;
+                } else {
+                    contentDiv.innerHTML = `
+                        <div class="chart-scroll-wrapper">
+                            <div class="controls-bar" style="margin-bottom: 0.75rem;">
+                                <h3 style="font-size: 1rem; font-weight: 600; color: var(--accent-cyan);">Disparity Spectrum (Most Underrepresented First)</h3>
+                                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                                    <span style="font-size: 0.85rem; color: var(--text-muted);">Display Bars:</span>
+                                    <select class="select-control" style="padding: 0.3rem 0.6rem; font-size: 0.85rem;" onchange="updateChartLimit('${axis}', parseInt(this.value))">
+                                        <option value="15">Top 15 Disparate</option>
+                                        <option value="30" selected>Top 30 Disparate</option>
+                                        <option value="50">Top 50 Disparate</option>
+                                        <option value="100">Top 100 Disparate</option>
+                                        <option value="9999">Show All Groups</option>
+                                    </select>
+                                </div>
+                            </div>
+                            <div class="chart-container" id="chart-container-${axis}">
+                                <canvas id="chart-${axis}"></canvas>
+                            </div>
+                        </div>
+
+                        <div class="controls-bar">
+                            <h3 style="font-size: 1.1rem; font-weight: 600;">Sub-Population Measurements</h3>
+                            <div style="display: flex; gap: 0.75rem; align-items: center;">
+                                <input type="text" class="search-input" placeholder="Search group label, QID or notes..." oninput="updateTable('${axis}', {search: this.value, page: 1})">
+                                <select class="select-control" onchange="updateTable('${axis}', {pageSize: parseInt(this.value), page: 1})">
+                                    <option value="25">25 per page</option>
+                                    <option value="50" selected>50 per page</option>
+                                    <option value="100">100 per page</option>
+                                    <option value="250">250 per page</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="data-table-wrapper">
+                            <table id="table-${axis}">
+                                <thead>
+                                    <tr>
+                                        <th onclick="toggleSort('${axis}', 'label')">Group ↕</th>
+                                        <th onclick="toggleSort('${axis}', 'group_size')">N ↕</th>
+                                        <th onclick="toggleSort('${axis}', 'observed')">Observed ↕</th>
+                                        <th onclick="toggleSort('${axis}', 'expected')">Expected ↕</th>
+                                        <th onclick="toggleSort('${axis}', 'ratio')">Ratio (Under to Overrepresented) ↕</th>
+                                        <th onclick="toggleSort('${axis}', 'severity')">Status ↕</th>
+                                        <th>Calculation & Baseline Source</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                            <div class="pagination-bar" id="pagination-${axis}"></div>
+                        </div>
+                    `;
+                }
 
                 tabContents.appendChild(contentDiv);
             });
 
-            // Render Chart for initial tab
-            if (axes.length > 0) {
-                renderChart(axes[0]);
+            // Initial render of main tab table
+            updateTable("all_measurements");
+
+            // Initial render of first axis chart/table
+            if (axes.length > 1) {
+                updateTable(axes[1]);
+                renderChart(axes[1], 30);
             }
+        }
+
+        function getAxisMetrics(axis) {
+            if (axis === "all_measurements") {
+                let master = [];
+                Object.keys(payload.axis_data).forEach(ax => {
+                    payload.axis_data[ax].forEach(m => {
+                        master.push({
+                            ...m,
+                            axis_name: ax,
+                            display_label: `[${formatAxisTitle(ax)}] ${m.group_label}`
+                        });
+                    });
+                });
+                return master;
+            }
+            return payload.axis_data[axis] || [];
         }
 
         function formatAxisTitle(axis) {
@@ -438,13 +586,89 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 .split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(" ");
         }
 
-        function renderTableRows(metrics) {
+        function toggleSort(axis, key) {
+            const st = tableState[axis];
+            if (st.sortKey === key) {
+                st.sortAsc = !st.sortAsc;
+            } else {
+                st.sortKey = key;
+                st.sortAsc = true;
+            }
+            updateTable(axis);
+        }
+
+        function updateTable(axis, changes = {}) {
+            const st = Object.assign(tableState[axis], changes);
+            let metrics = [...getAxisMetrics(axis)];
+
+            // Filter search
+            if (st.search) {
+                const q = st.search.toLowerCase();
+                metrics = metrics.filter(m => {
+                    const txt = `${m.group_label} ${m.group_key} ${m.explanation} ${m.axis_name || ''}`.toLowerCase();
+                    return txt.includes(q);
+                });
+            }
+
+            // Sort logic: default underrepresented first (ratio ASC)
+            metrics.sort((a, b) => {
+                let va, vb;
+                if (st.sortKey === 'label') {
+                    va = a.group_label; vb = b.group_label;
+                    return st.sortAsc ? va.localeCompare(vb) : vb.localeCompare(va);
+                } else if (st.sortKey === 'group_size') {
+                    va = a.group_size; vb = b.group_size;
+                } else if (st.sortKey === 'observed') {
+                    va = a.observed_value; vb = b.observed_value;
+                } else if (st.sortKey === 'expected') {
+                    va = a.expected_value !== null ? a.expected_value : -1;
+                    vb = b.expected_value !== null ? b.expected_value : -1;
+                } else if (st.sortKey === 'severity') {
+                    va = a.severity; vb = b.severity;
+                } else {
+                    // ratio default: nulls placed at end
+                    va = a.disparity_ratio !== null ? a.disparity_ratio : 999999;
+                    vb = b.disparity_ratio !== null ? b.disparity_ratio : 999999;
+                }
+
+                if (va < vb) return st.sortAsc ? -1 : 1;
+                if (va > vb) return st.sortAsc ? 1 : -1;
+                return 0;
+            });
+
+            // Pagination slice
+            const totalItems = metrics.length;
+            const totalPages = Math.max(1, Math.ceil(totalItems / st.pageSize));
+            if (st.page > totalPages) st.page = totalPages;
+            const startIdx = (st.page - 1) * st.pageSize;
+            const pageMetrics = metrics.slice(startIdx, startIdx + st.pageSize);
+
+            // Render tbody
+            const tbody = document.querySelector(`#table-${axis} tbody`);
+            tbody.innerHTML = renderTableRows(pageMetrics, axis === "all_measurements");
+
+            // Render Pagination
+            const pagDiv = document.getElementById(`pagination-${axis}`);
+            pagDiv.innerHTML = `
+                <div style="font-size: 0.85rem; color: var(--text-muted);">
+                    Showing ${totalItems > 0 ? startIdx + 1 : 0}–${Math.min(startIdx + st.pageSize, totalItems)} of ${totalItems.toLocaleString()} measurements
+                </div>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <button class="page-btn" ${st.page <= 1 ? 'disabled' : ''} onclick="updateTable('${axis}', {page: ${st.page - 1}})">← Prev</button>
+                    <span style="font-size: 0.85rem;">Page ${st.page} of ${totalPages}</span>
+                    <button class="page-btn" ${st.page >= totalPages ? 'disabled' : ''} onclick="updateTable('${axis}', {page: ${st.page + 1}})">Next →</button>
+                </div>
+            `;
+        }
+
+        function renderTableRows(metrics, isMaster = false) {
             return metrics.map(m => {
                 const ratioStr = m.disparity_ratio !== null ? m.disparity_ratio.toFixed(3) : "—";
                 const expStr = m.expected_value !== null ? (m.expected_value * 100).toFixed(2) + "%" : "—";
                 const obsStr = (m.observed_value * 100).toFixed(2) + "%";
+                const labelToShow = isMaster ? m.display_label : m.group_label;
 
-                let sevBadge = `<span class="severity-badge sev-balanced">Balanced</span>`;
+                let sevBadge = `<span class="severity-badge sev-unknown">Exploratory / Unknown</span>`;
                 if (m.disparity_ratio !== null) {
                     if (m.disparity_ratio < 0.20) {
                         sevBadge = `<span class="severity-badge sev-under-severe">Severe Under (${ratioStr})</span>`;
@@ -459,15 +683,13 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
                 return `
                     <tr>
-                        <td style="font-weight: 600;">${m.group_label}</td>
-                        <td>${m.group_size}</td>
+                        <td style="font-weight: 600;">${labelToShow}</td>
+                        <td>${m.group_size.toLocaleString()}</td>
                         <td>${obsStr}</td>
                         <td>${expStr}</td>
-                        <td style="font-family: 'Fira Code', monospace;">${ratioStr}</td>
+                        <td style="font-family: 'Fira Code', monospace; font-weight: 600; color: ${m.disparity_ratio < 1.0 ? '#f43f5e' : '#818cf8'};">${ratioStr}</td>
                         <td>${sevBadge}</td>
-                        <td>
-                            <div>${m.explanation || "Standard baseline model"}</div>
-                        </td>
+                        <td style="font-size: 0.8rem; color: var(--text-muted);">${m.explanation || "Standard baseline model"}</td>
                     </tr>
                 `;
             }).join("");
@@ -475,24 +697,52 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 
         function switchTab(targetAxis) {
             document.querySelectorAll(".tab-btn").forEach(btn => {
-                btn.classList.toggle("active", btn.innerText === formatAxisTitle(targetAxis));
+                const isTarget = (targetAxis === "all_measurements" && btn.innerText.includes("Master")) || btn.innerText === formatAxisTitle(targetAxis);
+                btn.classList.toggle("active", isTarget);
             });
             document.querySelectorAll(".tab-content").forEach(content => {
                 content.classList.toggle("active", content.id === `tab-${targetAxis}`);
             });
 
-            if (!charts[targetAxis]) {
-                renderChart(targetAxis);
+            updateTable(targetAxis);
+
+            if (targetAxis !== "all_measurements" && !charts[targetAxis]) {
+                renderChart(targetAxis, 30);
             }
         }
 
-        function renderChart(axis) {
+        function updateChartLimit(axis, limit) {
+            renderChart(axis, limit);
+        }
+
+        function renderChart(axis, limit = 30) {
+            if (axis === "all_measurements") return;
+
             const ctx = document.getElementById(`chart-${axis}`).getContext("2d");
-            const data = payload.axis_data[axis].slice(0, 20); // Top 20 groups
+            let data = [...(payload.axis_data[axis] || [])];
+
+            // Filter metrics to those with disparity_ratio and sort by disparity_ratio ASC (most underrepresented first!)
+            data = data.filter(d => d.disparity_ratio !== null);
+            data.sort((a, b) => a.disparity_ratio - b.disparity_ratio);
+
+            if (limit < data.length) {
+                data = data.slice(0, limit);
+            }
+
+            const container = document.getElementById(`chart-container-${axis}`);
+            if (data.length > 20) {
+                container.style.height = Math.max(420, data.length * 24) + "px";
+            } else {
+                container.style.height = "420px";
+            }
 
             const labels = data.map(d => d.group_label);
             const observed = data.map(d => (d.observed_value * 100).toFixed(2));
-            const expected = data.map(d => d.expected_value !== null ? (d.expected_value * 100).toFixed(2) : 0);
+            const expected = data.map(d => (d.expected_value * 100).toFixed(2));
+
+            if (charts[axis]) {
+                charts[axis].destroy();
+            }
 
             charts[axis] = new Chart(ctx, {
                 type: 'bar',
@@ -518,17 +768,18 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                     ]
                 },
                 options: {
+                    indexAxis: data.length > 15 ? 'y' : 'x',
                     responsive: true,
                     maintainAspectRatio: false,
                     scales: {
                         y: {
                             beginAtZero: true,
                             grid: { color: 'rgba(255, 255, 255, 0.05)' },
-                            ticks: { color: '#94a3b8' }
+                            ticks: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
                         },
                         x: {
-                            grid: { display: false },
-                            ticks: { color: '#94a3b8' }
+                            grid: { color: 'rgba(255, 255, 255, 0.05)' },
+                            ticks: { color: '#94a3b8', font: { family: 'Inter', size: 11 } }
                         }
                     },
                     plugins: {
@@ -540,19 +791,15 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                             titleColor: '#f8fafc',
                             bodyColor: '#94a3b8',
                             borderColor: '#334155',
-                            borderWidth: 1
+                            borderWidth: 1,
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed[context.chart.options.indexAxis === 'y' ? 'x' : 'y'] + '%';
+                                }
+                            }
                         }
                     }
                 }
-            });
-        }
-
-        function filterTable(axis, query) {
-            const filter = query.toLowerCase();
-            const rows = document.querySelectorAll(`#table-${axis} tbody tr`);
-            rows.forEach(row => {
-                const text = row.innerText.toLowerCase();
-                row.style.display = text.includes(filter) ? "" : "none";
             });
         }
 
@@ -612,13 +859,15 @@ def generate_html_report(
         [m for m in report.metrics if m.disparity_ratio is not None and m.disparity_ratio < 1.0]
     )
 
-    html_content = HTML_TEMPLATE.replace("{{CLASS_QID}}", str(class_qid))\
-                                .replace("{{SAMPLE_SIZE}}", f"{sample_size:,}")\
-                                .replace("{{TIMESTAMP_STR}}", str(timestamp_str))\
-                                .replace("{{TOTAL_AXES}}", str(len(by_axis)))\
-                                .replace("{{TOTAL_METRICS}}", f"{len(report.metrics):,}")\
-                                .replace("{{UNDERREPRESENTED_COUNT}}", f"{underrepresented_count:,}")\
-                                .replace("{{JSON_PAYLOAD}}", json_payload)
+    html_content = (
+        HTML_TEMPLATE.replace("{{CLASS_QID}}", str(class_qid))
+        .replace("{{SAMPLE_SIZE}}", f"{sample_size:,}")
+        .replace("{{TIMESTAMP_STR}}", str(timestamp_str))
+        .replace("{{TOTAL_AXES}}", str(len(by_axis)))
+        .replace("{{TOTAL_METRICS}}", f"{len(report.metrics):,}")
+        .replace("{{UNDERREPRESENTED_COUNT}}", f"{underrepresented_count:,}")
+        .replace("{{JSON_PAYLOAD}}", json_payload)
+    )
 
     with open(out_path, "w", encoding="utf-8") as f:
         f.write(html_content)
