@@ -237,17 +237,79 @@ wdcoverage bias geographic --class Q5 --filter P106=Q169470 --live-baselines
 
 ---
 
-## Wikidata-Backed Baselines
+---
 
-The `wikidata_coverage.bias.baselines` module lazily loads population baselines directly from Wikidata via SPARQL and caches them at the process level:
+## QLever Integration & Offline Data Ingestion
 
-1. **`language_speaker_shares(sparql, top_n=50)`**: Queries P1098 (number of speakers) for ISO 639-1 languages.
-2. **`country_population_shares(sparql)`**: Queries P1082 (population) for sovereign states (`Q6256`).
-3. **`gender_population_shares(sparql, country_qid=None)`**: Queries P1539 (female) and P1540 (male) population counts globally or per country.
-4. **`urban_rural_world_shares(sparql)`**: Queries P6343 (urban population count/%) weighted by P1082 across countries or GHS dataset statistics.
-5. **`classify_places_by_type(sparql, place_qids)`**: Classifies a batch of birth place QIDs (P19) into `urban` vs `rural` based on their P31 instance-of values.
-6. **`ipsos_sexual_orientation_shares(country_qid=None)`**: Global and country-specific sexual orientation population prevalence baselines derived from the official [Ipsos LGBT+ Pride 2023 Survey](https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey) and [Ipsos LGBT+ Pride 2024 Survey](https://www.ipsos.com/en/lgbt-pride-2024).
-7. **Spatial Setup**: Download `gadm_410-levels.zip` from GADM and extract to `data/gadm/` for administrative region boundary lookups.
+To bypass Wikidata Query Service (WDQS) 504 timeouts when auditing large populations like humans (`Q5`), `wikidata-coverage` includes a unified, optimized **QLever SPARQL query file** at **`queries/q5_qlever.sparql`**.
+
+### 1. The QLever Query File (`queries/q5_qlever.sparql`)
+This query selects `?item`, `?itemLabel`, `?gender` (P21), `?sexual_orientation` (P91), `?citizenship` (P27), `?ethnicity` (P172), `?occupation` (P106), `?birth_place` (P19), `?death_place` (P20), `?birth_date` (P569), `?death_date` (P570), `?given_name` (P735), `?family_name` (P734), `?language` (P1412), and `?sitelinks_count`.
+
+### 2. Fetching & Running from QLever Result Files
+You can execute the query against the Freiburg QLever endpoint or your local QLever instance and save the result TSV:
+
+```bash
+# Option A: Recommended cross-platform Python CLI (works everywhere without curl/shell syntax issues)
+wdcoverage qlever run --query-file queries/q5_qlever.sparql --out data/q5_qlever_results.tsv
+
+# Option B: Windows PowerShell (using curl.exe explicitly to avoid PowerShell Invoke-WebRequest alias)
+curl.exe -s -G "https://qlever.cs.uni-freiburg.de/api/wikidata" --data-urlencode "query=$(Get-Content queries/q5_qlever.sparql -Raw)" -H "Accept: text/tab-separated-values" -o data/q5_qlever_results.tsv
+
+# Option C: Linux / macOS / Bash
+curl -s -G "https://qlever.cs.uni-freiburg.de/api/wikidata" --data-urlencode "query=$(cat queries/q5_qlever.sparql)" -H "Accept: text/tab-separated-values" > data/q5_qlever_results.tsv
+
+# Run any bias detector directly from your QLever query result file (offline mode)
+wdcoverage bias gender --class Q5 --qlever-file data/q5_qlever_results.tsv
+wdcoverage bias sexual-orientation --class Q5 --qlever-file data/q5_qlever_results.tsv --compare-heterosexual-assumption
+wdcoverage bias intersectional --class Q5 --axis nationality+gender --qlever-file data/q5_qlever_results.tsv
+```
+
+Note: If a pre-downloaded result file exists at `data/q5_qlever_results.tsv`, `wikidata-coverage` will auto-detect and load from it automatically.
+
+---
+
+## Secondary Sexual Orientation Analysis (Assumed Heterosexual for Missing P91)
+
+Wikidata policy dictates that sexual orientation (`P91`) must only be recorded when publicly stated by the individual. Consequently, evaluating only entities with explicit `P91` claims exhibits strong self-disclosure selection bias toward sexual minorities (~75.5% non-heterosexual).
+
+To evaluate representation against global population baselines (e.g. Ipsos LGBT+ Pride survey statistics), `wikidata-coverage` supports a **secondary analysis model** assuming entities without explicit `P91` statements are heterosexual:
+
+```bash
+# Default (Primary): Explicit P91 stated subset only
+wdcoverage bias sexual-orientation --class Q5
+
+# Secondary Analysis: Assume heterosexual for missing P91
+wdcoverage bias sexual-orientation --class Q5 --assume-heterosexual-default
+
+# Side-by-side comparative analysis of explicit vs. assumed heterosexual representation
+wdcoverage bias sexual-orientation --class Q5 --compare-heterosexual-assumption
+```
+
+---
+
+## arXiv Publication Paper & Dedicated Figures
+
+The toolkit includes a complete, publication-grade academic paper formatted for arXiv (`publication/main.tex` and `publication/paper.md`) documenting data, methodology, empirical findings, and recommendations.
+
+### Generating Figures & Paper Assets
+
+Run the automated paper generator to produce high-resolution figure assets in `figures/` and `publication/figures/`:
+
+```bash
+wdcoverage generate-paper-report
+```
+
+Generated publication figures:
+- `figure1_gender_disparities`: Gender balance across occupations/nationalities vs. baseline.
+- `figure2_sexual_orientation_explicit_vs_assumed`: Explicit P91 distribution vs. secondary assumed heterosexual model.
+- `figure3_geographic_gadm_coverage`: Global geographic distribution vs. actual population shares.
+- `figure4_intersectional_bias`: Intersectional heatmap of nationality × gender representation.
+- `figure5_constraint_and_class_profile_gaps`: Property completeness rates across human items.
+
+Publication paper sources:
+- `publication/main.tex`: arXiv-formatted LaTeX paper.
+- `publication/paper.md`: Markdown version of publication paper.
 
 ---
 
@@ -256,3 +318,4 @@ The `wikidata_coverage.bias.baselines` module lazily loads population baselines 
 ```bash
 pytest tests/ -v
 ```
+

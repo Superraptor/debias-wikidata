@@ -15,11 +15,13 @@ logger = logging.getLogger(__name__)
 
 CACHE_GADM_FILE = "cache_gadm_lookups.json"
 _gadm_cache: dict[str, dict[str, str]] | None = None
+_gadm_warned_missing_gpkg: bool = False
+_gadm_warned_missing_geopandas: bool = False
 
 
 def gadm_lookup_point(lat: float, lon: float, force_refresh: bool = False) -> dict[str, str]:
     """Look up country ISO3 code and region for latitude and longitude using GADM 4.1.0 GPKG."""
-    global _gadm_cache
+    global _gadm_cache, _gadm_warned_missing_gpkg, _gadm_warned_missing_geopandas
     if not (isinstance(lat, (int, float)) and isinstance(lon, (int, float))):
         return {}
 
@@ -43,12 +45,20 @@ def gadm_lookup_point(lat: float, lon: float, force_refresh: bool = False) -> di
                 z.extract("gadm_410-levels.gpkg", path=get_data_dir())
 
     if not gpkg_path.is_file():
-        logger.warning("GADM GPKG file not found at %s", gpkg_path)
+        if not _gadm_warned_missing_gpkg:
+            logger.warning("GADM GPKG file not found at %s", gpkg_path)
+            _gadm_warned_missing_gpkg = True
         return {}
 
     try:
         import geopandas as gpd
+    except ImportError as err:
+        if not _gadm_warned_missing_geopandas:
+            logger.warning("geopandas is not installed: %s. GADM spatial lookups skipped.", err)
+            _gadm_warned_missing_geopandas = True
+        return {}
 
+    try:
         delta = 0.02
         bbox = (lon - delta, lat - delta, lon + delta, lat + delta)
 

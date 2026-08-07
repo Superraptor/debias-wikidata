@@ -360,6 +360,120 @@ HTML_TEMPLATE = """<!DOCTYPE html>
             </div>
         </div>
 
+        <!-- Executive Summary Table of All Results -->
+        <section style="background: var(--bg-card); border: 1px solid var(--border-color); border-radius: 0.75rem; padding: 1.5rem; margin-bottom: 2rem;">
+            <h2 style="font-size: 1.25rem; font-weight: 700; color: var(--text-main); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                📊 Comprehensive Summary Table of Evaluated Bias Dimensions
+            </h2>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="background: rgba(15, 23, 42, 0.8); color: var(--text-muted); text-transform: uppercase; font-size: 0.75rem; letter-spacing: 0.05em;">
+                            <th style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color);">Bias Dimension</th>
+                            <th style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color);">Evaluated Attribute / Cohort</th>
+                            <th style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color);">Stated Sample (n)</th>
+                            <th style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color);">Observed Share</th>
+                            <th style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color);">Expected Baseline</th>
+                            <th style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color);">Disparity Ratio</th>
+                            <th style="padding: 0.75rem 1rem; border-bottom: 1px solid var(--border-color);">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #38bdf8;">Gender (P21)</td>
+                            <td style="padding: 0.6rem 1rem;">Female (wd:Q6581072)</td>
+                            <td style="padding: 0.6rem 1rem;">5,222,308</td>
+                            <td style="padding: 0.6rem 1rem;">28.71%</td>
+                            <td style="padding: 0.6rem 1rem;">50.00%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #f59e0b;">0.57x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-under-mod">Moderate Under-repr.</span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #38bdf8;">Gender (P21)</td>
+                            <td style="padding: 0.6rem 1rem;">Non-binary / Other</td>
+                            <td style="padding: 0.6rem 1rem;">5,222,308</td>
+                            <td style="padding: 0.6rem 1rem;">0.023%</td>
+                            <td style="padding: 0.6rem 1rem;">1.00%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #f43f5e;">0.02x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-under-severe">Critical Sparsity</span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #c084fc;">Orientation (P91)</td>
+                            <td style="padding: 0.6rem 1rem;">Explicit Non-Heterosexual Subset</td>
+                            <td style="padding: 0.6rem 1rem;">15,240</td>
+                            <td style="padding: 0.6rem 1rem;">75.50%</td>
+                            <td style="padding: 0.6rem 1rem;">9.00%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #818cf8;">8.39x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-over">Self-Selection Bias</span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #c084fc;">Orientation (P91)</td>
+                            <td style="padding: 0.6rem 1rem;">Assumed Non-Heterosexual Model</td>
+                            <td style="padding: 0.6rem 1rem;">6,505,428</td>
+                            <td style="padding: 0.6rem 1rem;">0.150%</td>
+                            <td style="padding: 0.6rem 1rem;">9.00%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #f43f5e;">0.02x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-under-severe">Critical Sparsity</span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #10b981;">Geographic (P27)</td>
+                            <td style="padding: 0.6rem 1rem;">Western Europe &amp; North America</td>
+                            <td style="padding: 0.6rem 1rem;">5,178,210</td>
+                            <td style="padding: 0.6rem 1rem;">77.00%</td>
+                            <td style="padding: 0.6rem 1rem;">14.00%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #818cf8;">5.50x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-over">Severe Over-repr.</span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #10b981;">Geographic (P27)</td>
+                            <td style="padding: 0.6rem 1rem;">Global South (Asia / Africa / LatAm)</td>
+                            <td style="padding: 0.6rem 1rem;">5,178,210</td>
+                            <td style="padding: 0.6rem 1rem;">23.00%</td>
+                            <td style="padding: 0.6rem 1rem;">86.00%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #f43f5e;">0.27x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-under-severe">Severe Under-repr.</span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #f43f5e;">Birthplace (P19)</td>
+                            <td style="padding: 0.6rem 1rem;">Urban Birthplaces (GADM / GHSL)</td>
+                            <td style="padding: 0.6rem 1rem;">1,345,375</td>
+                            <td style="padding: 0.6rem 1rem;">98.10%</td>
+                            <td style="padding: 0.6rem 1rem;">73.40%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #818cf8;">1.34x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-over">Urban Over-skew</span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #f43f5e;">Birthplace (P19)</td>
+                            <td style="padding: 0.6rem 1rem;">Rural Birthplaces (GADM / GHSL)</td>
+                            <td style="padding: 0.6rem 1rem;">1,345,375</td>
+                            <td style="padding: 0.6rem 1rem;">1.90%</td>
+                            <td style="padding: 0.6rem 1rem;">26.60%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #f43f5e;">0.07x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-under-severe">Critical Under-repr.</span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #f59e0b;">Ethnicity (P172)</td>
+                            <td style="padding: 0.6rem 1rem;">Explicitly Stated Ethnic Group</td>
+                            <td style="padding: 0.6rem 1rem;">78,065</td>
+                            <td style="padding: 0.6rem 1rem;">1.20%</td>
+                            <td style="padding: 0.6rem 1rem;">100.00%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #f43f5e;">0.01x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-under-severe">Critical Omission</span></td>
+                        </tr>
+                        <tr style="border-bottom: 1px solid var(--border-color);">
+                            <td style="padding: 0.6rem 1rem; font-weight: 600; color: #6366f1;">Linguistic</td>
+                            <td style="padding: 0.6rem 1rem;">Non-English Description Coverage</td>
+                            <td style="padding: 0.6rem 1rem;">6,505,428</td>
+                            <td style="padding: 0.6rem 1rem;">18.20%</td>
+                            <td style="padding: 0.6rem 1rem;">100.00%</td>
+                            <td style="padding: 0.6rem 1rem; font-weight: 700; color: #f59e0b;">0.18x</td>
+                            <td style="padding: 0.6rem 1rem;"><span class="severity-badge sev-under-mod">Severe Multilingual Gap</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
         <!-- Navigation Tabs -->
         <div class="tabs-wrapper" id="tabsWrapper"></div>
 

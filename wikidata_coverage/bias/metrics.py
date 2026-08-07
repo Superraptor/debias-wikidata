@@ -31,6 +31,10 @@ class DisparityMetric:
     disparity_ratio: float | None  # observed / expected, None if no baseline
     severity: float
     message: str
+    ci_lower: float | None = None  # 95% confidence interval lower bound
+    ci_upper: float | None = None  # 95% confidence interval upper bound
+    standard_error: float | None = None  # standard error of the estimate
+    p_value: float | None = None   # p-value testing significance against expected baseline
     evidence: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -45,6 +49,10 @@ class DisparityMetric:
             "expected_value": self.expected_value,
             "disparity_ratio": self.disparity_ratio,
             "severity": self.severity,
+            "ci_lower": self.ci_lower,
+            "ci_upper": self.ci_upper,
+            "standard_error": self.standard_error,
+            "p_value": self.p_value,
             "message": self.message,
             "evidence": self.evidence,
         }

@@ -9,7 +9,7 @@ description = "Detect, assess, and suggest fixes for data modeling and coverage 
 readme = "README.md"
 requires-python = ">=3.10"
 license = { text = "MIT" }
-authors = [{ name = "Your Name" }]
+authors = [{ name = "Clair Kronk (Superraptor123)" }]
 dependencies = [
     "SPARQLWrapper>=2.0.0",
     "requests>=2.31.0",
@@ -17,6 +17,7 @@ dependencies = [
     "click>=8.1.0",
     "rich>=13.7.0",
     "cachetools>=5.3.0",
+    "geopandas>=0.14.0",
 ]
 
 [project.optional-dependencies]

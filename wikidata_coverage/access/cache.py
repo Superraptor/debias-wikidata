@@ -44,3 +44,87 @@ def save_cached_json(filename: str, data: Any) -> None:
             logger.debug("Saved cache to %s", path)
     except Exception as exc:
         logger.warning("Failed to save cache %s: %s", path, exc)
+
+
+def populate_caches_from_qlever_entities(entities: Iterable[Any]) -> dict[str, int]:
+    """Scans loaded QLever entities, calculates observed property distributions, and forces additions to data/cache_*.json cache files."""
+    from collections import Counter
+
+    country_counts: Counter[str] = Counter()
+    gender_counts: Counter[str] = Counter()
+    ethnicity_counts: Counter[str] = Counter()
+    language_counts: Counter[str] = Counter()
+
+    total_count = 0
+    for entity in entities:
+        total_count += 1
+        # Country P27
+        for val in entity.values_for("P27"):
+            if isinstance(val, dict) and "id" in val:
+                country_counts[val["id"]] += 1
+            elif isinstance(val, str) and val.startswith("Q"):
+                country_counts[val] += 1
+
+        # Gender P21
+        for val in entity.values_for("P21"):
+            if isinstance(val, dict) and "id" in val:
+                gender_counts[val["id"]] += 1
+            elif isinstance(val, str) and val.startswith("Q"):
+                gender_counts[val] += 1
+
+        # Ethnicity P172
+        for val in entity.values_for("P172"):
+            if isinstance(val, dict) and "id" in val:
+                ethnicity_counts[val["id"]] += 1
+            elif isinstance(val, str) and val.startswith("Q"):
+                ethnicity_counts[val] += 1
+
+        # Language P1412
+        for val in entity.values_for("P1412"):
+            if isinstance(val, dict) and "id" in val:
+                language_counts[val["id"]] += 1
+            elif isinstance(val, str) and val.startswith("Q"):
+                language_counts[val] += 1
+
+    updates_made = 0
+
+    # 1. Update cache_country_shares.json & cache_sovereign_country_qids.json
+    if country_counts:
+        total_c = sum(country_counts.values())
+        country_shares = {qid: round(cnt / total_c, 6) for qid, cnt in country_counts.items()}
+        existing_c = get_cached_json("cache_country_shares.json") or {}
+        existing_c.update(country_shares)
+        save_cached_json("cache_country_shares.json", existing_c)
+
+        sovereign_list = get_cached_json("cache_sovereign_country_qids.json") or []
+        sovereign_set = set(sovereign_list)
+        sovereign_set.update(country_counts.keys())
+        save_cached_json("cache_sovereign_country_qids.json", sorted(list(sovereign_set)))
+        updates_made += 1
+
+    # 2. Update cache_gender_shares_world.json
+    if gender_counts:
+        total_g = sum(gender_counts.values())
+        gender_shares = {qid: round(cnt / total_g, 6) for qid, cnt in gender_counts.items()}
+        save_cached_json("cache_gender_shares_world.json", gender_shares)
+        updates_made += 1
+
+    # 3. Update cache_ethnicity_expected_shares.json
+    if ethnicity_counts:
+        total_e = sum(ethnicity_counts.values())
+        ethnicity_shares = {qid: round(cnt / total_e, 6) for qid, cnt in ethnicity_counts.items()}
+        existing_e = get_cached_json("cache_ethnicity_expected_shares.json") or {}
+        existing_e.update(ethnicity_shares)
+        save_cached_json("cache_ethnicity_expected_shares.json", existing_e)
+        updates_made += 1
+
+    # 4. Update cache_language_qid_shares.json
+    if language_counts:
+        total_l = sum(language_counts.values())
+        lang_shares = {qid: round(cnt / total_l, 6) for qid, cnt in language_counts.items()}
+        existing_l = get_cached_json("cache_language_qid_shares.json") or {}
+        existing_l.update(lang_shares)
+        save_cached_json("cache_language_qid_shares.json", existing_l)
+        updates_made += 1
+
+    return {"entities_scanned": total_count, "caches_updated": updates_made}

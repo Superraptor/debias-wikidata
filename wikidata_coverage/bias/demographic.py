@@ -51,6 +51,7 @@ class DemographicBalanceDetector(GroupShareDetector):
         expected_shares: dict[str, float] | None = None,
         sparql: "SparqlClient" | None = None,
         axis: str | None = None,
+        name: str | None = None,
         group_label_fn: Callable[[str], str] | None = None,
         min_group_size: int = 1,
         take_first_value: bool = True,
@@ -98,7 +99,7 @@ class DemographicBalanceDetector(GroupShareDetector):
 
         super().__init__(
             axis=axis or default_axis,
-            name=f"demographic_balance_detector[{property_id}]",
+            name=name or f"demographic_balance_detector[{property_id}]",
             group_fn=group_fn,
             group_label_fn=group_label_fn,
             expected_shares=expected_shares or {},

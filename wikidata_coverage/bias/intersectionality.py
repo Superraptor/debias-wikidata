@@ -331,6 +331,7 @@ def ethnicity_and_gender_detector(
 def nationality_and_sexual_orientation_detector(
     sparql: "SparqlClient | None" = None,
     min_group_size: int = 1,
+    assume_heterosexual_if_missing: bool = False,
 ) -> IntersectionalityDetector:
     """Preconfigured detector for Country of Citizenship (P27) x Sexual Orientation (P91)
     using Ipsos country-specific survey statistics for surveyed countries, and global Ipsos stats for others."""
@@ -345,7 +346,7 @@ def nationality_and_sexual_orientation_detector(
         axis="nationality_and_sexual_orientation",
         name="nationality_and_sexual_orientation_detector",
         extract_a=lambda e: _extract_single_qid(e, "P27"),
-        extract_b=_orientation_category_of,
+        extract_b=lambda e: _orientation_category_of(e, assume_heterosexual_if_missing=assume_heterosexual_if_missing),
         label_a=lambda qid: COUNTRY_LABELS.get(qid, qid),
         label_b=lambda k: k,
         expected_shares_a=country_shares,
@@ -358,6 +359,7 @@ def nationality_and_sexual_orientation_detector(
 def sexual_orientation_and_gender_detector(
     sparql: "SparqlClient | None" = None,
     min_group_size: int = 1,
+    assume_heterosexual_if_missing: bool = False,
 ) -> IntersectionalityDetector:
     """Preconfigured detector for Sexual Orientation (P91) x Gender (P21)."""
     from wikidata_coverage.bias.sexual_orientation import _orientation_category_of
@@ -371,7 +373,7 @@ def sexual_orientation_and_gender_detector(
     return IntersectionalityDetector(
         axis="sexual_orientation_and_gender",
         name="sexual_orientation_and_gender_detector",
-        extract_a=_orientation_category_of,
+        extract_a=lambda e: _orientation_category_of(e, assume_heterosexual_if_missing=assume_heterosexual_if_missing),
         extract_b=gender_of,
         label_a=lambda k: k,
         label_b=lambda qid: GENDER_LABELS.get(qid, qid),
@@ -379,3 +381,4 @@ def sexual_orientation_and_gender_detector(
         expected_shares_b=gender_shares,
         min_group_size=min_group_size,
     )
+

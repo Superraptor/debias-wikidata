@@ -22,7 +22,14 @@ import click
 from rich.console import Console
 from rich.table import Table
 
+import csv
+from pathlib import Path
 from wikidata_coverage.access.api import ActionApiClient
+from wikidata_coverage.access.qlever import (
+    QLeverClient,
+    load_entities_from_qlever_file,
+    find_default_qlever_file,
+)
 from wikidata_coverage.access.sparql import SparqlClient
 from wikidata_coverage.bias.demographic import DemographicBalanceDetector, PROPERTY_AXIS_NAMES
 from wikidata_coverage.bias.ethnicity import EthnicityBalanceDetector
@@ -44,6 +51,7 @@ from wikidata_coverage.core.entity import Entity
 from wikidata_coverage.core.report import CoverageReport
 from wikidata_coverage.detectors.class_profile import ClassProfileDetector
 from wikidata_coverage.detectors.constraints import ConstraintDetector
+from wikidata_coverage.generate_paper_figures import generate_all_figures
 
 console = Console()
 
@@ -120,6 +128,7 @@ def scope_filter_options(f):
     f = click.option("--occupation", default=None, callback=validate_qid_option, help="Filter scope by occupation (P106 QID), e.g. Q169470 (physicist)")(f)
     f = click.option("--ethnicity", default=None, callback=validate_qid_option, help="Filter scope by ethnic group (P172 QID), e.g. Q539050")(f)
     f = click.option("--filter", "custom_filters", multiple=True, callback=validate_filter_option, help="Custom property filter in Pxx=Qyy format, e.g. P27=Q142")(f)
+    f = click.option("--qlever-file", "--qlever-data", "qlever_file", default=None, help="Path to QLever query result file (TSV, CSV, JSON) to run analysis offline")(f)
     return f
 
 
@@ -138,7 +147,27 @@ def _fetch_class_entities(
     custom_filters: tuple[str, ...] = (),
     required_properties: list[str] | None = None,
     exclude_fictional: bool = True,
+    qlever_file: str | None = None,
 ) -> list[Entity]:
+    target_qlever = Path(qlever_file) if qlever_file else find_default_qlever_file()
+    if target_qlever and target_qlever.exists():
+        console.print(f"[bold green]Loading entity population from QLever result file {target_qlever}...[/bold green]")
+        entities = load_entities_from_qlever_file(target_qlever)
+
+        # Apply in-memory property filters if specified
+        if nationality:
+            entities = [e for e in entities if nationality in [v.get("id") for v in e.values_for("P27") if isinstance(v, dict)]]
+        if occupation:
+            entities = [e for e in entities if occupation in [v.get("id") for v in e.values_for("P106") if isinstance(v, dict)]]
+        if ethnicity:
+            entities = [e for e in entities if ethnicity in [v.get("id") for v in e.values_for("P172") if isinstance(v, dict)]]
+
+        if limit and len(entities) > limit:
+            entities = entities[:limit]
+
+        console.print(f"Loaded {len(entities)} matching entity objects from QLever file.")
+        return entities
+
     property_filters: dict[str, str] = {}
     if nationality:
         property_filters["P27"] = nationality
@@ -164,6 +193,7 @@ def _fetch_class_entities(
     )
     console.print(f"Found {len(qids)} items. Fetching entity data...")
     return _fetch_entities(qids)
+
 
 
 @click.group()
@@ -364,6 +394,8 @@ def bias_linguistic(
 @click.option("--class", "class_qid", required=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
 @click.option("--limit", default=500, show_default=True, callback=validate_limit_option, help="Max entities to sample")
 @scope_filter_options
+@click.option("--assume-heterosexual-default", "--assume-heterosexual", "assume_heterosexual", is_flag=True, default=False, help="Assume entities without explicit P91 statements are heterosexual")
+@click.option("--compare-heterosexual-assumption", "compare_assumption", is_flag=True, default=False, help="Display side-by-side comparison of explicit P91 vs. assumed-heterosexual models")
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
 def bias_sexual_orientation(
     class_qid: str,
@@ -372,15 +404,59 @@ def bias_sexual_orientation(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
+    qlever_file: str | None,
+    assume_heterosexual: bool,
+    compare_assumption: bool,
     out_path: str | None,
 ) -> None:
     """Measure distribution of P91 (sexual orientation) values vs. Ipsos global and country-specific baselines."""
     entities = _fetch_class_entities(
-        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
+        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters, qlever_file=qlever_file
     )
-    detector = SexualOrientationDetector(country_qid=nationality)
 
-    console.print(f"Running sexual-orientation detector (country baseline={nationality or 'Ipsos Global'})...")
+    if compare_assumption:
+        console.print(f"[bold cyan]Running Sexual Orientation Comparative Analysis (Explicit P91 vs. Assumed Heterosexual)...[/bold cyan]")
+        det_explicit = SexualOrientationDetector(country_qid=nationality, assume_heterosexual_if_missing=False)
+        det_assumed = SexualOrientationDetector(country_qid=nationality, assume_heterosexual_if_missing=True)
+
+        m_explicit = det_explicit.run(entities)
+        m_assumed = det_assumed.run(entities)
+
+        comp_table = Table(title="Sexual Orientation Representation: Explicit P91 vs. Assumed Heterosexual Model")
+        comp_table.add_column("Category / Group")
+        comp_table.add_column("Explicit P91 (N)")
+        comp_table.add_column("Explicit Share")
+        comp_table.add_column("Assumed Het. (N)")
+        comp_table.add_column("Assumed Het. Share")
+        comp_table.add_column("Ipsos Baseline")
+
+        all_keys = set([m.group_key for m in m_explicit] + [m.group_key for m in m_assumed])
+        map_exp = {m.group_key: m for m in m_explicit}
+        map_ass = {m.group_key: m for m in m_assumed}
+
+        for k in sorted(all_keys):
+            e_m = map_exp.get(k)
+            a_m = map_ass.get(k)
+            label = e_m.group_label if e_m else (a_m.group_label if a_m else k)
+            e_n = str(e_m.group_size) if e_m else "0"
+            e_share = f"{e_m.observed_value:.2%}" if e_m else "0.00%"
+            a_n = str(a_m.group_size) if a_m else "0"
+            a_share = f"{a_m.observed_value:.2%}" if a_m else "0.00%"
+            base = f"{e_m.expected_value:.2%}" if (e_m and e_m.expected_value) else "—"
+
+            comp_table.add_row(label, e_n, e_share, a_n, a_share, base)
+
+        console.print(comp_table)
+
+        report = BiasReport()
+        report.add(m_explicit)
+        report.add(m_assumed)
+        _emit_bias(report, out_path, axis="sexual_orientation")
+        return
+
+    detector = SexualOrientationDetector(country_qid=nationality, assume_heterosexual_if_missing=assume_heterosexual)
+    mode_desc = "Assumed Heterosexual for Missing P91" if assume_heterosexual else "Explicit P91 Only"
+    console.print(f"Running sexual-orientation detector [baseline={nationality or 'Ipsos Global'}, mode={mode_desc}]...")
     metrics = detector.run(entities)
 
     report = BiasReport()
@@ -401,6 +477,7 @@ def bias_rural_urban(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
+    qlever_file: str | None,
     property_id: str,
     out_path: str | None,
 ) -> None:
@@ -413,6 +490,7 @@ def bias_rural_urban(
         ethnicity=ethnicity,
         custom_filters=custom_filters,
         required_properties=[property_id],
+        qlever_file=qlever_file,
     )
     sparql = SparqlClient()
     detector = RuralUrbanDetector(sparql=sparql, property_id=property_id)
@@ -437,11 +515,12 @@ def bias_ethnicity(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
+    qlever_file: str | None,
     out_path: str | None,
 ) -> None:
     """Measure representation across recorded P172 (ethnic group) values."""
     entities = _fetch_class_entities(
-        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
+        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters, qlever_file=qlever_file
     )
     sparql = SparqlClient()
     detector = EthnicityBalanceDetector(sparql=sparql)
@@ -470,6 +549,7 @@ def bias_ethnicity(
     help="Pair of axes to evaluate"
 )
 @scope_filter_options
+@click.option("--assume-heterosexual-default", "--assume-heterosexual", "assume_heterosexual", is_flag=True, default=False, help="Assume entities without explicit P91 statements are heterosexual for sexual orientation axes")
 @click.option("--live-baselines", is_flag=True, default=False, help="Fetch live population baselines from Wikidata via SPARQL")
 @click.option("--out", "out_path", default=None, help="Write JSON/CSV report; use .csv extension for CSV")
 def bias_intersectional(
@@ -480,6 +560,8 @@ def bias_intersectional(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
+    qlever_file: str | None,
+    assume_heterosexual: bool,
     live_baselines: bool,
     out_path: str | None,
 ) -> None:
@@ -494,7 +576,7 @@ def bias_intersectional(
     )
 
     entities = _fetch_class_entities(
-        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
+        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters, qlever_file=qlever_file
     )
     sparql = SparqlClient() if live_baselines or "nationality" in intersectional_axis else None
 
@@ -507,9 +589,9 @@ def bias_intersectional(
     elif intersectional_axis == "ethnicity+gender":
         detector = ethnicity_and_gender_detector(sparql=sparql)
     elif intersectional_axis == "nationality+sexual_orientation":
-        detector = nationality_and_sexual_orientation_detector(sparql=sparql)
+        detector = nationality_and_sexual_orientation_detector(sparql=sparql, assume_heterosexual_if_missing=assume_heterosexual)
     elif intersectional_axis == "sexual_orientation+gender":
-        detector = sexual_orientation_and_gender_detector(sparql=sparql)
+        detector = sexual_orientation_and_gender_detector(sparql=sparql, assume_heterosexual_if_missing=assume_heterosexual)
     else:
         raise click.BadParameter(f"Unknown intersectional axis: {intersectional_axis}")
 
@@ -519,6 +601,7 @@ def bias_intersectional(
     report = BiasReport()
     report.add(metrics)
     _emit_bias(report, out_path, axis=detector.axis)
+
 
 
 @bias.command(name="all")
@@ -620,7 +703,7 @@ def _run_bias_demo(
 
     console.print(f" -> Generating interactive HTML demo report at [bold green]{out_path}[/bold green]...")
     generate_html_report(report, sample_size=len(entities), class_qid=class_qid, out_path=out_path)
-    console.print(f"[bold green]✓ Interactive HTML Demo Report successfully generated: {out_path}[/bold green]")
+    console.print(f"[bold green][OK] Interactive HTML Demo Report successfully generated: {out_path}[/bold green]")
 
 
 @main.command(name="demo")
@@ -702,7 +785,7 @@ def _run_coverage_demo(
     from wikidata_coverage.coverage_html_report import generate_coverage_html_report
 
     generate_coverage_html_report(report, sample_size=len(entities), class_qid=class_qid, out_path=out_path, lang=lang)
-    console.print(f"[bold green]✓ Interactive Coverage & Quality Demo Report successfully generated: {out_path}[/bold green]")
+    console.print(f"[bold green][OK] Interactive Coverage & Quality Demo Report successfully generated: {out_path}[/bold green]")
 
 
 @main.command(name="coverage-demo")
@@ -903,5 +986,64 @@ def _emit_bias(report: BiasReport, out_path: str | None, axis: str | None) -> No
         console.print(worst_table)
 
 
+# ---------------------------------------------------------------------------
+# QLever & Publication Report Commands
+# ---------------------------------------------------------------------------
+
+@main.group()
+def qlever() -> None:
+    """QLever query execution & file ingestion tools."""
+
+
+@qlever.command(name="run")
+@click.option("--query-file", default="queries/q5_qlever.sparql", show_default=True, help="Path to QLever SPARQL query file")
+@click.option("--endpoint", default="https://qlever.cs.uni-freiburg.de/api/wikidata", show_default=True, help="QLever endpoint URL")
+@click.option("--out", "out_path", default="data/q5_qlever_results.tsv", show_default=True, help="Output file path for QLever TSV results")
+def qlever_run(query_file: str, endpoint: str, out_path: str) -> None:
+    """Run a QLever SPARQL query file against a QLever endpoint and save result file."""
+    client = QLeverClient(endpoint=endpoint)
+    console.print(f"Executing QLever SPARQL query file [bold]{query_file}[/bold] against [cyan]{endpoint}[/cyan]...")
+    results = client.query_file(query_file)
+    console.print(f"Received {len(results)} row bindings. Saving to {out_path}...")
+    Path(out_path).parent.mkdir(parents=True, exist_ok=True)
+    if results:
+        headers = list(results[0].keys())
+        with open(out_path, "w", newline="", encoding="utf-8") as f:
+            writer = csv.writer(f, delimiter="\t")
+            writer.writerow(headers)
+            for r in results:
+                writer.writerow([r.get(h, "") for h in headers])
+    console.print(f"[bold green][OK] QLever query result written to {out_path}[/bold green]")
+
+
+@qlever.command(name="load")
+@click.option("--file", "qlever_file", default=None, help="Path to QLever TSV/CSV/JSON file (defaults to auto-detecting data/q5_qlever_results.tsv)")
+def qlever_load(qlever_file: str | None) -> None:
+    """Load and parse a QLever query result file into Entity objects."""
+    target_file = Path(qlever_file) if qlever_file else find_default_qlever_file()
+    if not target_file:
+        console.print("[red]No QLever result file found. Provide --file or save query results to data/q5_qlever_results.tsv[/red]")
+        return
+    console.print(f"Loading entities from QLever result file [bold]{target_file}[/bold]...")
+    entities = load_entities_from_qlever_file(target_file)
+    console.print(f"[bold green][OK] Successfully loaded {len(entities)} unique Entity objects from QLever file.[/bold green]")
+
+
+@main.command(name="generate-paper-report")
+@click.option("--out-dir", default="publication", show_default=True, help="Directory to save publication report assets")
+@click.option("--figures-dir", default="figures", show_default=True, help="Directory to save publication figures")
+def generate_paper_report_cmd(out_dir: str, figures_dir: str) -> None:
+    """Generate arXiv publication paper report and dedicated figure assets."""
+    console.print("[bold cyan]Generating arXiv publication figures and report...[/bold cyan]")
+    generated_figures = generate_all_figures()
+    console.print(f"[bold green][OK] Generated {len(generated_figures)} figure files in '{figures_dir}/' and '{out_dir}/figures/'[/bold green]")
+
+    tex_file = Path(out_dir) / "main.tex"
+    md_file = Path(out_dir) / "paper.md"
+    console.print(f"[bold green][OK] Publication paper source ready at [underline]{tex_file}[/underline] and [underline]{md_file}[/underline][/bold green]")
+
+
+
 if __name__ == "__main__":
     main()
+

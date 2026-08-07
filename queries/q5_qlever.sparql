@@ -1,0 +1,53 @@
+# QLever SPARQL Query for Q5 (Human) Demographic, Geographic, and Modeling Coverage Analysis
+# -----------------------------------------------------------------------------------------
+# This SPARQL query extracts all entity attributes required by the `wikidata_coverage` suite
+# to perform gender balance, sexual orientation (explicit & assumed heterosexual), ethnic,
+# geographic, linguistic, intersectional, and property constraint analyses for humans (wd:Q5).
+#
+# Execution Options:
+# 1. Recommended (Cross-platform Python CLI):
+#    wdcoverage qlever run --query-file queries/q5_qlever.sparql --out data/q5_qlever_results.tsv
+#    wdcoverage bias sexual-orientation --qlever-file data/q5_qlever_results.tsv --compare-heterosexual-assumption
+#
+# 2. Windows PowerShell (using curl.exe directly):
+#    curl.exe -s -G "https://qlever.cs.uni-freiburg.de/api/wikidata" --data-urlencode "query=$(Get-Content queries/q5_qlever.sparql -Raw)" -H "Accept: text/tab-separated-values" -o data/q5_qlever_results.tsv
+#
+# 3. Bash / Linux / macOS (using curl):
+#    curl -s -G "https://qlever.cs.uni-freiburg.de/api/wikidata" --data-urlencode "query=$(cat queries/q5_qlever.sparql)" -H "Accept: text/tab-separated-values" > data/q5_qlever_results.tsv
+
+PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+SELECT ?item ?itemLabel ?gender ?sexual_orientation ?citizenship ?ethnicity ?occupation ?birth_place ?death_place ?birth_date ?death_date ?given_name ?family_name ?language ?sitelinks_count WHERE {
+  # Scoped population: Instance of Human (Q5)
+  ?item wdt:P31 wd:Q5 .
+
+  # Core demographic & identity attributes (OPTIONAL to capture presence/absence and coverage gaps)
+  OPTIONAL { ?item wdt:P21 ?gender . }
+  OPTIONAL { ?item wdt:P91 ?sexual_orientation . }
+  OPTIONAL { ?item wdt:P27 ?citizenship . }
+  OPTIONAL { ?item wdt:P172 ?ethnicity . }
+  OPTIONAL { ?item wdt:P106 ?occupation . }
+  
+  # Geographic & temporal properties
+  OPTIONAL { ?item wdt:P19 ?birth_place . }
+  OPTIONAL { ?item wdt:P20 ?death_place . }
+  OPTIONAL { ?item wdt:P569 ?birth_date . }
+  OPTIONAL { ?item wdt:P570 ?death_date . }
+  
+  # Onomastic & linguistic attributes
+  OPTIONAL { ?item wdt:P735 ?given_name . }
+  OPTIONAL { ?item wdt:P734 ?family_name . }
+  OPTIONAL { ?item wdt:P1412 ?language . }
+
+  # Sitelink count metric (used for linguistic & multi-wiki coverage scoring)
+  OPTIONAL { ?item wikibase:sitelinks ?sitelinks_count . }
+
+  # Fetch English label if available
+  OPTIONAL {
+    ?item rdfs:label ?itemLabel .
+    FILTER(LANG(?itemLabel) = "en")
+  }
+}

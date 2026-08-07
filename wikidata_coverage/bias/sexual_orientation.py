@@ -57,16 +57,16 @@ ORIENTATION_LABELS: dict[str, str] = {
 }
 
 
-def _orientation_qid_of(entity: Entity) -> str | None:
+def _orientation_qid_of(entity: Entity, assume_heterosexual_if_missing: bool = False) -> str | None:
     values = entity.values_for("P91")
     if not values:
-        return None
+        return "Q1035954" if assume_heterosexual_if_missing else None
     v = values[0]
-    return v.get("id") if isinstance(v, dict) else None
+    return (v.get("id") if isinstance(v, dict) else None) or ("Q1035954" if assume_heterosexual_if_missing else None)
 
 
-def _orientation_category_of(entity: Entity) -> str | None:
-    qid = _orientation_qid_of(entity)
+def _orientation_category_of(entity: Entity, assume_heterosexual_if_missing: bool = False) -> str | None:
+    qid = _orientation_qid_of(entity, assume_heterosexual_if_missing=assume_heterosexual_if_missing)
     if not qid:
         return None
     return baselines.SEXUAL_ORIENTATION_CANONICAL_MAP.get(qid, ORIENTATION_LABELS.get(qid, qid))
@@ -74,7 +74,8 @@ def _orientation_category_of(entity: Entity) -> str | None:
 
 class SexualOrientationDetector(GroupShareDetector):
     """Distribution of P91 (sexual orientation) values among entities that
-    have this property explicitly recorded.
+    have this property explicitly recorded, or under secondary analysis where missing
+    P91 values are assumed heterosexual.
 
     By default, uses population statistics from the Ipsos LGBT+ Pride Global Surveys:
     - 2023 Survey: https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey
@@ -94,6 +95,7 @@ class SexualOrientationDetector(GroupShareDetector):
         expected_shares: dict[str, float] | None = None,
         label_overrides: dict[str, str] | None = None,
         min_group_size: int = 1,
+        assume_heterosexual_if_missing: bool = False,
     ) -> None:
         """
         Args:
@@ -104,9 +106,11 @@ class SexualOrientationDetector(GroupShareDetector):
             expected_shares: explicit prevalence dict override.
             label_overrides: additional ``{qid: label}`` entries to merge with ORIENTATION_LABELS.
             min_group_size: groups smaller than this are flagged as low-confidence.
+            assume_heterosexual_if_missing: if True, entities lacking P91 are assigned heterosexual.
         """
         labels = {**ORIENTATION_LABELS, **(label_overrides or {})}
         self.country_qid = country_qid
+        self.assume_heterosexual_if_missing = assume_heterosexual_if_missing
         self.baseline_info = baselines.ipsos_sexual_orientation_info(country_qid)
 
         if expected_shares is None and use_ipsos_baselines:
@@ -115,7 +119,11 @@ class SexualOrientationDetector(GroupShareDetector):
                 by_qid=not group_by_category,
             )
 
-        group_fn = _orientation_category_of if group_by_category else _orientation_qid_of
+        if group_by_category:
+            group_fn = lambda e: _orientation_category_of(e, assume_heterosexual_if_missing=assume_heterosexual_if_missing)
+        else:
+            group_fn = lambda e: _orientation_qid_of(e, assume_heterosexual_if_missing=assume_heterosexual_if_missing)
+
         group_label_fn = (lambda k: k) if group_by_category else (lambda qid: labels.get(qid, qid))
 
         super().__init__(
@@ -129,15 +137,20 @@ class SexualOrientationDetector(GroupShareDetector):
 
     def run(self, entities: Iterable[Entity]) -> list[DisparityMetric]:
         metrics = super().run(entities)
+        mode = "assumed_heterosexual_if_missing" if self.assume_heterosexual_if_missing else "explicit_only"
         for m in metrics:
             m.evidence.update(self.baseline_info)
+            m.evidence["analysis_mode"] = mode
+            m.evidence["assume_heterosexual_if_missing"] = self.assume_heterosexual_if_missing
         return metrics
 
     def _message(self, key: str, observed: float, expected: float | None, n: int) -> str:
         base_msg = super()._message(key, observed, expected, n)
+        mode_str = " (Assumed Heterosexual for Missing P91)" if self.assume_heterosexual_if_missing else ""
         if expected is not None:
             source = self.baseline_info["source"]
             year = self.baseline_info["source_year"]
             b_type = self.baseline_info["baseline_type"]
-            return f"{base_msg} [Source: {source} ({year}), {b_type}]"
-        return base_msg
+            return f"{base_msg}{mode_str} [Source: {source} ({year}), {b_type}]"
+        return f"{base_msg}{mode_str}"
+

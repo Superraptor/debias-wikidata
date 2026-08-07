@@ -111,10 +111,27 @@ class GroupShareDetector(BiasDetector):
             return []
 
         metrics: list[DisparityMetric] = []
+        import math
+
         for key, members in groups.items():
-            observed_share = len(members) / population_size
+            k = len(members)
+            observed_share = k / population_size
             expected = self.expected_shares.get(key)
             ratio = (observed_share / expected) if expected else None
+
+            # Compute Standard Error & 95% Confidence Interval (Normal / Wilson)
+            se = math.sqrt(max(0, observed_share * (1 - observed_share) / population_size))
+            ci_lower = round(max(0.0, observed_share - 1.96 * se), 6)
+            ci_upper = round(min(1.0, observed_share + 1.96 * se), 6)
+            se_val = round(se, 6)
+
+            # Compute two-tailed p-value against expected baseline if provided
+            p_val = None
+            if expected is not None and expected > 0 and expected < 1:
+                se_null = math.sqrt(expected * (1 - expected) / population_size)
+                z_stat = abs(observed_share - expected) / se_null if se_null > 0 else 0
+                # Approximation of 2 * (1 - Phi(z))
+                p_val = round(2 * (1 - 0.5 * (1 + math.erf(z_stat / math.sqrt(2)))), 8)
 
             metrics.append(
                 DisparityMetric(
@@ -123,13 +140,17 @@ class GroupShareDetector(BiasDetector):
                     group_key=key,
                     group_label=self.group_label_fn(key),
                     population_size=population_size,
-                    group_size=len(members),
-                    observed_value=round(observed_share, 4),
+                    group_size=k,
+                    observed_value=round(observed_share, 6),
                     expected_value=expected,
                     disparity_ratio=round(ratio, 4) if ratio is not None else None,
                     severity=self._severity_for_ratio(ratio),
-                    message=self._message(key, observed_share, expected, len(members)),
-                    evidence={"low_confidence": len(members) < self.min_group_size},
+                    ci_lower=ci_lower,
+                    ci_upper=ci_upper,
+                    standard_error=se_val,
+                    p_value=p_val,
+                    message=self._message(key, observed_share, expected, k),
+                    evidence={"low_confidence": k < self.min_group_size},
                 )
             )
 
@@ -192,9 +213,28 @@ class GroupMeanDetector(BiasDetector):
         population_size = len(all_entities)
 
         metrics: list[DisparityMetric] = []
+        import math
+
         for key, members in groups.items():
-            group_mean = sum(self.measure_fn(e) for e in members) / len(members)
+            vals = [self.measure_fn(e) for e in members]
+            n_grp = len(vals)
+            group_mean = sum(vals) / n_grp
             ratio = (group_mean / overall_mean) if overall_mean else None
+
+            # Calculate sample variance and SE of the mean
+            if n_grp > 1:
+                variance = sum((v - group_mean) ** 2 for v in vals) / (n_grp - 1)
+                se_mean = math.sqrt(variance / n_grp)
+            else:
+                se_mean = 0.0
+
+            ci_lower = round(group_mean - 1.96 * se_mean, 4)
+            ci_upper = round(group_mean + 1.96 * se_mean, 4)
+            se_val = round(se_mean, 4)
+
+            # Two-tailed t/z test vs population mean
+            z_stat = abs(group_mean - overall_mean) / se_mean if se_mean > 0 else 0.0
+            p_val = round(2 * (1 - 0.5 * (1 + math.erf(z_stat / math.sqrt(2)))), 8)
 
             metrics.append(
                 DisparityMetric(
@@ -203,16 +243,20 @@ class GroupMeanDetector(BiasDetector):
                     group_key=key,
                     group_label=self.group_label_fn(key),
                     population_size=population_size,
-                    group_size=len(members),
+                    group_size=n_grp,
                     observed_value=round(group_mean, 4),
                     expected_value=round(overall_mean, 4),
                     disparity_ratio=round(ratio, 4) if ratio is not None else None,
                     severity=GroupShareDetector._severity_for_ratio(ratio),
+                    ci_lower=ci_lower,
+                    ci_upper=ci_upper,
+                    standard_error=se_val,
+                    p_value=p_val,
                     message=(
                         f"{self.group_label_fn(key)}: mean {group_mean:.2f} vs. "
-                        f"population mean {overall_mean:.2f} ({len(members)} entities)."
+                        f"population mean {overall_mean:.2f} ({n_grp} entities)."
                     ),
-                    evidence={"low_confidence": len(members) < self.min_group_size},
+                    evidence={"low_confidence": n_grp < self.min_group_size},
                 )
             )
 

@@ -177,8 +177,8 @@ class SparqlClient:
         if not to_query:
             return {q: cached[q] for q in place_qids if q in cached}
 
-        for start in range(0, len(to_query), 50):
-            batch = to_query[start : start + 50]
+        for start in range(0, len(to_query), 500):
+            batch = to_query[start : start + 500]
             values_clause = " ".join(f"wd:{qid}" for qid in batch)
             query = f"""
             SELECT ?place ?lat ?lon ?wkt ?country WHERE {{

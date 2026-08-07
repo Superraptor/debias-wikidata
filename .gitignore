@@ -9,3 +9,5 @@ dist/
 .DS_Store
 data/*.gpkg
 data/*.zip
+data/*.tsv
+data/*.csv
