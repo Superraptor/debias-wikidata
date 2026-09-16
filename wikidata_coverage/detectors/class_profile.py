@@ -49,20 +49,13 @@ class ClassProfileDetector(Detector):
         self,
         frequency_threshold: float = 0.8,
         min_population_size: int = 5,
+        max_items: int | None = None,
     ) -> None:
-        """
-        Args:
-            frequency_threshold: if >= this fraction of peers have a
-                property, absence is flagged for the rest. 0.8 = "80% of
-                similar items have this, so items lacking it stand out."
-            min_population_size: below this, don't trust the inferred
-                profile enough to raise findings (too few peers to judge).
-        """
         self.frequency_threshold = frequency_threshold
         self.min_population_size = min_population_size
+        self.max_items = max_items
 
-    def build_profile(self, entities: list[Entity], class_id: str) -> ClassProfile:
-        members = [e for e in entities if class_id in e.classes()]
+    def build_profile(self, members: list[Entity], class_id: str) -> ClassProfile:
         counts: Counter[str] = Counter()
         for e in members:
             for prop_id in e.property_ids():
@@ -74,14 +67,11 @@ class ClassProfileDetector(Detector):
         return ClassProfile(class_id=class_id, population_size=n, property_frequency=frequency)
 
     def run(self, entities: Iterable[Entity]) -> list[Finding]:
-        entities = list(entities)
+        entities_list = list(entities)
         findings: list[Finding] = []
 
-        # Group entities by every class they belong to, then build + apply
-        # a profile per class. An entity in multiple classes is judged
-        # against each independently.
         class_members: dict[str, list[Entity]] = {}
-        for e in entities:
+        for e in entities_list:
             for c in e.classes():
                 class_members.setdefault(c, []).append(e)
 
@@ -89,14 +79,18 @@ class ClassProfileDetector(Detector):
             if len(members) < self.min_population_size:
                 continue
 
-            profile = self.build_profile(entities, class_id)
+            profile = self.build_profile(members, class_id)
             expected_props = {
                 prop
                 for prop, freq in profile.property_frequency.items()
                 if freq >= self.frequency_threshold
             }
 
-            for entity in members:
+            # Sort members by fewest properties populated first (most missing values)
+            sorted_members = sorted(members, key=lambda e: len(e.property_ids()))
+            target_members = sorted_members[: self.max_items] if self.max_items and self.max_items > 0 else sorted_members
+
+            for entity in target_members:
                 missing = {p for p in expected_props if not entity.has_property(p)}
                 for prop_id in missing:
                     freq = profile.property_frequency[prop_id]

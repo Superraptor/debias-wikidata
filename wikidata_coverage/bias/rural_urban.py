@@ -119,11 +119,12 @@ class RuralUrbanDetector(BiasDetector):
             c_qid = c_info.get("country_qid")
 
             country_code = c_qid
-            if lat is not None and lon is not None:
+            # Only perform heavy GADM spatial GPKG lookup if place is unclassified or country_qid is missing
+            if (cat == "unclassified" or not country_code) and lat is not None and lon is not None:
                 gadm = gadm_lookup_point(lat, lon, force_refresh=self.force_refresh)
-                if gadm.get("iso3"):
+                if gadm.get("iso3") and not country_code:
                     country_code = gadm["iso3"]
-                if gadm.get("classification"):
+                if gadm.get("classification") and cat == "unclassified":
                     cat = gadm["classification"]
 
             place_country[qid] = country_code

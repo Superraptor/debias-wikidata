@@ -1,0 +1,47 @@
+[
+  {
+    "name": "Robert W. Snow",
+    "description": "Academic researcher",
+    "orcid": "0000-0003-3725-6088",
+    "country_code": "",
+    "citation_count": 57856,
+    "works_count": 682,
+    "source_api": "OpenAlex REST API"
+  },
+  {
+    "name": "Christian Bottomley",
+    "description": "Academic researcher",
+    "orcid": "0000-0002-5241-8412",
+    "country_code": "",
+    "citation_count": 10489,
+    "works_count": 263,
+    "source_api": "OpenAlex REST API"
+  },
+  {
+    "name": "Susan C. Morpeth",
+    "description": "Academic researcher",
+    "orcid": "0000-0002-6131-8536",
+    "country_code": "",
+    "citation_count": 9722,
+    "works_count": 156,
+    "source_api": "OpenAlex REST API"
+  },
+  {
+    "name": "Charles N. Agoti",
+    "description": "Academic researcher",
+    "orcid": "0000-0002-2160-567X",
+    "country_code": "",
+    "citation_count": 4227,
+    "works_count": 367,
+    "source_api": "OpenAlex REST API"
+  },
+  {
+    "name": "James R. Otieno",
+    "description": "Academic researcher",
+    "orcid": "0000-0001-9790-2307",
+    "country_code": "",
+    "citation_count": 1539,
+    "works_count": 106,
+    "source_api": "OpenAlex REST API"
+  }
+]

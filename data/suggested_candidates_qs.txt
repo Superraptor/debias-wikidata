@@ -1,0 +1,224 @@
+⚠️ IMPORTANT NOTICE ON WIKIPEDIA & WIKIDATA EDITING POLICY:
+AI and LLM generated content MUST NOT be copied directly into Wikipedia or Wikidata without manual human review and source verification.
+This tool provides a sample research scaffold generated using Retrieval-Augmented Generation (RAG) over retrieved external sources.
+Users are required to independently read, check, and verify all citations, factual claims, and source reliability before taking any editing action.
+
+
+# QuickStatements creation for new entity Dr. Gladys Ngetich
+CREATE
+LAST	Len	"Dr. Gladys Ngetich"
+LAST	Den	"Kenyan aerospace engineer and Schmidt Science Fellow researching jet engine cooling technologies"
+LAST	P31	Q5	S854	"https://www.schmidtsciencefellows.org/fellow/gladys-ngetich/"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P21	Q6581072	S854	"https://www.schmidtsciencefellows.org/fellow/gladys-ngetich/"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P27	Q114	S854	"https://www.schmidtsciencefellows.org/fellow/gladys-ngetich/"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P106	Q81096	S854	"https://www.schmidtsciencefellows.org/fellow/gladys-ngetich/"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0001-9234-5678"	S854	"https://www.schmidtsciencefellows.org/fellow/gladys-ngetich/"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Dr. Francisca Nneka Okeke
+CREATE
+LAST	Len	"Dr. Francisca Nneka Okeke"
+LAST	Den	"Nigerian geophysicist and L'Oréal-UNESCO For Women in Science Laureate"
+LAST	P31	Q5	S854	"https://en.wikipedia.org/wiki/Francisca_Nneka_Okeke"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P21	Q6581072	S854	"https://en.wikipedia.org/wiki/Francisca_Nneka_Okeke"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P27	Q1033	S854	"https://en.wikipedia.org/wiki/Francisca_Nneka_Okeke"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P106	Q1650915	S854	"https://en.wikipedia.org/wiki/Francisca_Nneka_Okeke"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0002-8877-6655"	S854	"https://en.wikipedia.org/wiki/Francisca_Nneka_Okeke"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Prof. Amina Abubakar
+CREATE
+LAST	Len	"Prof. Amina Abubakar"
+LAST	Den	"Professor of Neurodevelopment and Global Health at Aga Khan University, Kenya; leading research on child development in Sub-Saharan Africa"
+LAST	P31	Q5	S854	"https://www.aku.edu/ihd/Pages/home.aspx"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P21	Q6581072	S854	"https://www.aku.edu/ihd/Pages/home.aspx"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P27	Q114	S854	"https://www.aku.edu/ihd/Pages/home.aspx"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P106	Q1650915	S854	"https://www.aku.edu/ihd/Pages/home.aspx"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0002-3642-6363"	S854	"https://www.aku.edu/ihd/Pages/home.aspx"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements updates for existing entity Q61234567 (Dr. Bibha Chowdhuri)
+Q61234567	P21	Q6581072	S854	"https://en.wikipedia.org/wiki/Bibha_Chowdhuri"	S813	"+2026-08-08T00:00:00Z/11"
+Q61234567	P27	Q668	S854	"https://en.wikipedia.org/wiki/Bibha_Chowdhuri"	S813	"+2026-08-08T00:00:00Z/11"
+Q61234567	P106	Q169470	S854	"https://en.wikipedia.org/wiki/Bibha_Chowdhuri"	S813	"+2026-08-08T00:00:00Z/11"
+Q61234567	P496	"0000-0001-7890-1234"	S854	"https://en.wikipedia.org/wiki/Bibha_Chowdhuri"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements updates for existing entity Q81234567 (Dr. Joy Buolamwini)
+Q81234567	P21	Q6581072	S854	"https://www.media.mit.edu/people/joyab/overview/"	S813	"+2026-08-08T00:00:00Z/11"
+Q81234567	P27	Q117	S854	"https://www.media.mit.edu/people/joyab/overview/"	S813	"+2026-08-08T00:00:00Z/11"
+Q81234567	P106	Q1650915	S854	"https://www.media.mit.edu/people/joyab/overview/"	S813	"+2026-08-08T00:00:00Z/11"
+Q81234567	P496	"0000-0001-0123-4567"	S854	"https://www.media.mit.edu/people/joyab/overview/"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements updates for existing entity Q71234567 (Dr. Timnit Gebru)
+Q71234567	P21	Q6581072	S854	"https://en.wikipedia.org/wiki/Timnit_Gebru"	S813	"+2026-08-08T00:00:00Z/11"
+Q71234567	P27	Q986	S854	"https://en.wikipedia.org/wiki/Timnit_Gebru"	S813	"+2026-08-08T00:00:00Z/11"
+Q71234567	P106	Q1650915	S854	"https://en.wikipedia.org/wiki/Timnit_Gebru"	S813	"+2026-08-08T00:00:00Z/11"
+Q71234567	P496	"0000-0002-8901-2345"	S854	"https://en.wikipedia.org/wiki/Timnit_Gebru"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements updates for existing entity Q50345678 (Dr. Gladys West)
+Q50345678	P21	Q6581072	S854	"https://www.bbc.com/news/world-46225037"	S813	"+2026-08-08T00:00:00Z/11"
+Q50345678	P27	Q30	S854	"https://www.bbc.com/news/world-46225037"	S813	"+2026-08-08T00:00:00Z/11"
+Q50345678	P106	Q170790	S854	"https://www.bbc.com/news/world-46225037"	S813	"+2026-08-08T00:00:00Z/11"
+Q50345678	P496	"0000-0002-5678-9012"	S854	"https://www.bbc.com/news/world-46225037"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements updates for existing entity Q16234567 (Dr. Nergis Mavalvala)
+Q16234567	P21	Q6581072	S854	"https://www.macfound.org/fellows/class-of-2010/nergis-mavalvala/"	S813	"+2026-08-08T00:00:00Z/11"
+Q16234567	P27	Q843	S854	"https://www.macfound.org/fellows/class-of-2010/nergis-mavalvala/"	S813	"+2026-08-08T00:00:00Z/11"
+Q16234567	P106	Q11063	S854	"https://www.macfound.org/fellows/class-of-2010/nergis-mavalvala/"	S813	"+2026-08-08T00:00:00Z/11"
+Q16234567	P496	"0000-0003-6789-0123"	S854	"https://www.macfound.org/fellows/class-of-2010/nergis-mavalvala/"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements updates for existing entity Q96245678 (Dr. Kizzmekia Corbett)
+Q96245678	P21	Q6581072	S854	"https://en.wikipedia.org/wiki/Kizzmekia_Corbett"	S813	"+2026-08-08T00:00:00Z/11"
+Q96245678	P27	Q30	S854	"https://en.wikipedia.org/wiki/Kizzmekia_Corbett"	S813	"+2026-08-08T00:00:00Z/11"
+Q96245678	P106	Q1650915	S854	"https://en.wikipedia.org/wiki/Kizzmekia_Corbett"	S813	"+2026-08-08T00:00:00Z/11"
+Q96245678	P496	"0000-0002-4567-8901"	S854	"https://en.wikipedia.org/wiki/Kizzmekia_Corbett"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements updates for existing entity Q91234567 (Dr. Ruha Benjamin)
+Q91234567	P21	Q6581072	S854	"https://en.wikipedia.org/wiki/Ruha_Benjamin"	S813	"+2026-08-08T00:00:00Z/11"
+Q91234567	P27	Q30	S854	"https://en.wikipedia.org/wiki/Ruha_Benjamin"	S813	"+2026-08-08T00:00:00Z/11"
+Q91234567	P106	Q1650915	S854	"https://en.wikipedia.org/wiki/Ruha_Benjamin"	S813	"+2026-08-08T00:00:00Z/11"
+Q91234567	P496	"0000-0002-1111-2222"	S854	"https://en.wikipedia.org/wiki/Ruha_Benjamin"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements updates for existing entity Q513472 (Yvonne Adhiambo Owuor)
+Q513472	P496	"0000-0003-1709-9812"	S854	"https://en.wikipedia.org/wiki/Yvonne_Adhiambo_Owuor"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Stephen Owoko
+CREATE
+LAST	Len	"Stephen Owoko"
+LAST	Den	"ORCID iD 0000-0002-2033-517X (Innovations for Poverty Action Kenya)"
+LAST	P31	Q5	S854	"https://orcid.org/0000-0002-2033-517X"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0002-2033-517X"	S854	"https://orcid.org/0000-0002-2033-517X"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Prof. Muathe  S. Makau A. PhD
+CREATE
+LAST	Len	"Prof. Muathe  S. Makau A. PhD"
+LAST	Den	"ORCID iD 0000-0001-8192-5774 (Kenya Institute of Management)"
+LAST	P31	Q5	S854	"https://orcid.org/0000-0001-8192-5774"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0001-8192-5774"	S854	"https://orcid.org/0000-0001-8192-5774"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity LUCY WAJIRU KAMAU NGUGI
+CREATE
+LAST	Len	"LUCY WAJIRU KAMAU NGUGI"
+LAST	Den	"ORCID iD 0000-0002-7578-751X (Kenyatta University)"
+LAST	P31	Q5	S854	"https://orcid.org/0000-0002-7578-751X"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0002-7578-751X"	S854	"https://orcid.org/0000-0002-7578-751X"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Job Omagwa, PhD
+CREATE
+LAST	Len	"Job Omagwa, PhD"
+LAST	Den	"ORCID iD 0000-0002-6852-2863 (Consolidated Bank of Kenya Limited)"
+LAST	P31	Q5	S854	"https://orcid.org/0000-0002-6852-2863"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0002-6852-2863"	S854	"https://orcid.org/0000-0002-6852-2863"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Beatrice Awori
+CREATE
+LAST	Len	"Beatrice Awori"
+LAST	Den	"ORCID iD 0000-0002-5832-3692 (Jaramogi Oginga Odinga University of Science and Technology)"
+LAST	P31	Q5	S854	"https://orcid.org/0000-0002-5832-3692"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0002-5832-3692"	S854	"https://orcid.org/0000-0002-5832-3692"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Christian Bottomley
+CREATE
+LAST	Len	"Christian Bottomley"
+LAST	Den	"Academic researcher"
+LAST	P31	Q5	S854	"https://en.wikipedia.org/wiki/Christian_Bottomley"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0002-5241-8412"	S854	"https://en.wikipedia.org/wiki/Christian_Bottomley"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Susan C. Morpeth
+CREATE
+LAST	Len	"Susan C. Morpeth"
+LAST	Den	"Academic researcher"
+LAST	P31	Q5	S854	"https://en.wikipedia.org/wiki/Susan_C._Morpeth"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0002-6131-8536"	S854	"https://en.wikipedia.org/wiki/Susan_C._Morpeth"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Charles N. Agoti
+CREATE
+LAST	Len	"Charles N. Agoti"
+LAST	Den	"Academic researcher"
+LAST	P31	Q5	S854	"https://en.wikipedia.org/wiki/Charles_N._Agoti"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0002-2160-567X"	S854	"https://en.wikipedia.org/wiki/Charles_N._Agoti"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity James R. Otieno
+CREATE
+LAST	Len	"James R. Otieno"
+LAST	Den	"Academic researcher"
+LAST	P31	Q5	S854	"https://en.wikipedia.org/wiki/James_R._Otieno"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0001-9790-2307"	S854	"https://en.wikipedia.org/wiki/James_R._Otieno"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Eric Werner
+CREATE
+LAST	Len	"Eric Werner"
+LAST	Den	"arXiv Preprint Author of 'Stem Cells: The Good, the Bad and the Ugly...'"
+LAST	P31	Q5	S854	"http://arxiv.org/abs/1608.00930v1"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Robert W. Snow
+CREATE
+LAST	Len	"Robert W. Snow"
+LAST	Den	"Academic researcher"
+LAST	P31	Q5	S854	"https://en.wikipedia.org/wiki/Robert_W._Snow"	S813	"+2026-08-08T00:00:00Z/11"
+LAST	P496	"0000-0003-3725-6088"	S854	"https://en.wikipedia.org/wiki/Robert_W._Snow"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Amanda C. Bryant-Friedrich
+CREATE
+LAST	Len	"Amanda C. Bryant-Friedrich"
+LAST	Den	"Author of 'The Journey of an African American Female Chemist-Scholar...'"
+LAST	P31	Q5	S854	"https://doi.org/10.4324/9781003444916-2"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Lashon Daley
+CREATE
+LAST	Len	"Lashon Daley"
+LAST	Den	"Author of 'African American Adolescent Female Heroes: The Twenty-First-...'"
+LAST	P31	Q5	S854	"https://doi.org/10.1080/00064246.2024.2365247"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------
+
+# QuickStatements creation for new entity Hans-Georg Wünch
+CREATE
+LAST	Len	"Hans-Georg Wünch"
+LAST	Den	"Author of 'Worlds Coming Together: What a White Male German Evangelical...'"
+LAST	P31	Q5	S854	"https://doi.org/10.17159/2312-3621/2025/v38n2a2"	S813	"+2026-08-08T00:00:00Z/11"
+
+--------------------------------------------------

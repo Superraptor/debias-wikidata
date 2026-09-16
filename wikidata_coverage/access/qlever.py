@@ -19,8 +19,30 @@ import requests
 
 from wikidata_coverage.core.entity import Claim, Entity
 
+from datetime import datetime
+
 QLEVER_WIKIDATA_ENDPOINT = "https://qlever.cs.uni-freiburg.de/api/wikidata/"
 DEFAULT_USER_AGENT = "wikidata-coverage/0.1 (https://github.com/example/wikidata-coverage)"
+
+
+def get_qlever_dataset_timestamp(file_path: str | Path | None = None) -> dict[str, str]:
+    """Returns dataset timestamp metadata for transparency and analytical reproducibility."""
+    target_path = Path(file_path) if file_path else find_default_qlever_file()
+    now_utc = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%SZ")
+    if target_path and target_path.exists():
+        mtime = datetime.fromtimestamp(target_path.stat().st_mtime).strftime("%Y-%m-%d %H:%M:%SZ")
+        return {
+            "dataset_file": str(target_path.name),
+            "file_modified_timestamp": mtime,
+            "analysis_executed_timestamp": now_utc,
+            "qlever_source": "Freiburg QLever Wikidata Dump Endpoint",
+        }
+    return {
+        "dataset_file": "live_sparql_api",
+        "file_modified_timestamp": now_utc,
+        "analysis_executed_timestamp": now_utc,
+        "qlever_source": "Wikidata Query Service SPARQL API",
+    }
 
 QID_REGEX = re.compile(r"Q\d+")
 
@@ -149,7 +171,9 @@ def parse_qlever_csv(csv_content: str) -> list[dict[str, str]]:
     return rows
 
 
-def load_entities_from_qlever_file(filepath: str | Path, show_progress: bool = True) -> list[Entity]:
+def load_entities_from_qlever_file(
+    filepath: str | Path, show_progress: bool = True, max_entities: int | None = None
+) -> list[Entity]:
     """Reads a QLever TSV, CSV, or JSON query result file and builds `Entity` objects.
 
     Uses line-by-line streaming with a visual progress bar tracking bytes, percentage,
@@ -170,7 +194,8 @@ def load_entities_from_qlever_file(filepath: str | Path, show_progress: bool = T
             rows = [{k.lstrip("?"): v["value"] for k, v in b.items()} for b in bindings]
         else:
             rows = []
-        return build_entities_from_qlever_rows(rows)
+        res = build_entities_from_qlever_rows(rows)
+        return res[:max_entities] if max_entities else res
 
     delimiter = "," if ext == ".csv" else "\t"
     entity_data: dict[str, dict[str, Any]] = {}
@@ -249,6 +274,8 @@ def load_entities_from_qlever_file(filepath: str | Path, show_progress: bool = T
                     continue
 
                 if qid not in entity_data:
+                    if max_entities is not None and len(entity_data) >= max_entities:
+                        break
                     label_val = row[label_idx] if (label_idx != -1 and label_idx < len(row)) else qid
                     entity_data[qid] = {
                         "id": qid,
@@ -256,6 +283,7 @@ def load_entities_from_qlever_file(filepath: str | Path, show_progress: bool = T
                         "claims": {},
                         "sitelinks_count": 0,
                     }
+
 
                 e_entry = entity_data[qid]
                 claims = e_entry["claims"]

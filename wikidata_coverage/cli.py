@@ -669,14 +669,17 @@ def _run_bias_demo(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
+    qlever_file: str | None = None,
 ) -> None:
     from wikidata_coverage.bias.html_report import generate_html_report
 
     entities = _fetch_class_entities(
-        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
+        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters, qlever_file=qlever_file
     )
     sparql = SparqlClient() if live_baselines else None
     report = BiasReport()
+
+    from rich.progress import Progress, TextColumn, BarColumn, TaskProgressColumn, TimeElapsedColumn, TimeRemainingColumn
 
     console.print(f"[bold cyan]Running demographic & intersectional bias audit across {len(entities):,} entities of class {class_qid}...[/bold cyan]")
 
@@ -694,22 +697,45 @@ def _run_bias_demo(
         ("Intersectional (Sexual Orientation × Gender)", sexual_orientation_and_gender_detector(sparql=sparql if live_baselines else None)),
     ]
 
-    for label, det in detectors:
-        console.print(f" -> Running {label}...")
-        report.add(det.run(entities))
+    with Progress(
+        TextColumn("[bold green]{task.description}[/bold green]"),
+        BarColumn(),
+        TaskProgressColumn(),
+        TimeElapsedColumn(),
+        TextColumn("eta:"),
+        TimeRemainingColumn(),
+        console=console,
+    ) as progress:
+        bias_task = progress.add_task("Auditing Demographic Bias Axes", total=len(detectors))
+
+        for idx, (label, det) in enumerate(detectors, 1):
+            progress.update(bias_task, description=f"[{idx}/{len(detectors)}] {label}")
+            report.carbon_estimator.start_component(label)
+            res = det.run(entities)
+            report.carbon_estimator.stop_component(label, description=f"Evaluated {len(res)} metrics")
+            report.add(res)
+            progress.advance(bias_task)
 
     console.print(" -> Resolving QID labels for human readability...")
+    report.carbon_estimator.start_component("QID Label Resolution")
     report.resolve_labels(lang=lang)
+    report.carbon_estimator.stop_component("QID Label Resolution")
 
     console.print(f" -> Generating interactive HTML demo report at [bold green]{out_path}[/bold green]...")
+    report.carbon_estimator.start_component("HTML Dashboard Compilation")
     generate_html_report(report, sample_size=len(entities), class_qid=class_qid, out_path=out_path)
+    report.carbon_estimator.stop_component("HTML Dashboard Compilation")
     console.print(f"[bold green][OK] Interactive HTML Demo Report successfully generated: {out_path}[/bold green]")
+
+    # Display Carbon Footprint Summary Table in CLI
+    c_summary = report.carbon_estimator.summary_dict()
+    console.print(f"\n[bold green][Carbon Audit] Pipeline Environmental Impact Summary:[/bold green] Total Energy: [bold]{c_summary['total_energy_wh']:.4f} Wh[/bold] | Total Carbon: [bold green]{c_summary['total_carbon_g']:.4f} g CO2e[/bold green]")
 
 
 @main.command(name="demo")
 @click.option("--class", "class_qid", default="Q5", show_default=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
 @click.option("--limit", default=10000, show_default=True, callback=validate_limit_option, help="Max entities to sample")
-@click.option("--out", "out_path", default="debias_wikidata_demo.html", show_default=True, help="Path to write interactive HTML demo report")
+@click.option("--out", "out_path", default="dashboard/debias_wikidata_demo.html", show_default=True, help="Path to write interactive HTML demo report")
 @click.option("--live-baselines/--no-live-baselines", default=True, show_default=True, help="Fetch live baselines via SPARQL")
 @click.option("--lang", default="en", show_default=True, help="Language code for labels")
 @scope_filter_options
@@ -723,15 +749,16 @@ def cli_demo(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
+    qlever_file: str | None = None,
 ) -> None:
     """Run full demographic & intersectional bias audit across entities and generate an interactive HTML demo report."""
-    _run_bias_demo(class_qid, limit, out_path, live_baselines, lang, nationality, occupation, ethnicity, custom_filters)
+    _run_bias_demo(class_qid, limit, out_path, live_baselines, lang, nationality, occupation, ethnicity, custom_filters, qlever_file)
 
 
 @bias.command(name="demo")
 @click.option("--class", "class_qid", default="Q5", show_default=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
 @click.option("--limit", default=10000, show_default=True, callback=validate_limit_option, help="Max entities to sample")
-@click.option("--out", "out_path", default="debias_wikidata_demo.html", show_default=True, help="Path to write interactive HTML demo report")
+@click.option("--out", "out_path", default="dashboard/debias_wikidata_demo.html", show_default=True, help="Path to write interactive HTML demo report")
 @click.option("--live-baselines/--no-live-baselines", default=True, show_default=True, help="Fetch live baselines via SPARQL")
 @click.option("--lang", default="en", show_default=True, help="Language code for labels")
 @scope_filter_options
@@ -745,53 +772,45 @@ def bias_demo(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
+    qlever_file: str | None = None,
 ) -> None:
     """Run full demographic & intersectional bias audit across entities and generate an interactive HTML demo report."""
-    _run_bias_demo(class_qid, limit, out_path, live_baselines, lang, nationality, occupation, ethnicity, custom_filters)
+    _run_bias_demo(class_qid, limit, out_path, live_baselines, lang, nationality, occupation, ethnicity, custom_filters, qlever_file)
 
 
 def _run_coverage_demo(
     class_qid: str = "Q5",
-    limit: int = 100,
-    out_path: str = "debias_wikidata_coverage_demo.html",
+    limit: int = 50,
+    out_path: str = "dashboard/debias_wikidata_coverage_demo.html",
     threshold: float = 0.8,
     lang: str = "en",
     nationality: str | None = None,
     occupation: str | None = None,
     ethnicity: str | None = None,
     custom_filters: tuple[str, ...] = (),
+    qlever_file: str | None = None,
 ) -> None:
     entities = _fetch_class_entities(
-        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters
+        class_qid, limit, nationality=nationality, occupation=occupation, ethnicity=ethnicity, custom_filters=custom_filters, qlever_file=qlever_file
     )
-    console.print(f"Running constraint & class-profile quality audit across [bold]{len(entities):,}[/bold] entities of class [bold]{class_qid}[/bold]...")
+    console.print(f"Running constraint & class-profile quality audit across top [bold]{limit}[/bold] lowest-quality entities of class [bold]{class_qid}[/bold]...")
 
-    c_detector = ConstraintDetector(exclude_fictional=True)
-    c_findings = c_detector.run(entities)
-    console.print(f" -> ConstraintDetector generated [bold]{len(c_findings):,}[/bold] findings")
+    from wikidata_coverage.detectors.quality_audit import run_qlever_quality_audit
+    audit_res = run_qlever_quality_audit(entities, class_qid=class_qid, top_n=limit, frequency_threshold=threshold)
+    report = audit_res.coverage_report
 
-    p_detector = ClassProfileDetector(frequency_threshold=threshold)
-    p_findings = p_detector.run(entities)
-    console.print(f" -> ClassProfileDetector generated [bold]{len(p_findings):,}[/bold] findings")
-
-    report = CoverageReport()
-    report.add(c_findings)
-    report.add(p_findings)
-
-    console.print(" -> Resolving entity & property labels for human readability...")
-    report.resolve_labels(lang=lang)
-
-    console.print(f" -> Generating interactive HTML coverage demo report at [bold green]{out_path}[/bold green]...")
+    console.print(f" -> Quality audit generated [bold]{len(report.findings):,}[/bold] findings across [bold]{audit_res.audited_count}[/bold] enriched entities")
+    console.print(f" -> Generating interactive HTML coverage report at [bold green]{out_path}[/bold green]...")
     from wikidata_coverage.coverage_html_report import generate_coverage_html_report
 
-    generate_coverage_html_report(report, sample_size=len(entities), class_qid=class_qid, out_path=out_path, lang=lang)
-    console.print(f"[bold green][OK] Interactive Coverage & Quality Demo Report successfully generated: {out_path}[/bold green]")
+    generate_coverage_html_report(report, sample_size=len(entities), class_qid=class_qid, out_path=out_path, lang=lang, audit_res=audit_res)
+    console.print(f"[bold green][OK] Interactive Coverage & Quality Report successfully generated: {out_path}[/bold green]")
 
 
 @main.command(name="coverage-demo")
 @click.option("--class", "class_qid", default="Q5", show_default=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
 @click.option("--limit", default=100, show_default=True, callback=validate_limit_option, help="Max entities to sample")
-@click.option("--out", "out_path", default="debias_wikidata_coverage_demo.html", show_default=True, help="Path to write interactive HTML coverage report")
+@click.option("--out", "out_path", default="dashboard/debias_wikidata_coverage_demo.html", show_default=True, help="Path to write interactive HTML coverage report")
 @click.option("--threshold", default=0.8, show_default=True, help="Peer-frequency threshold for class-profile detector")
 @click.option("--lang", default="en", show_default=True, help="Language code for labels")
 @scope_filter_options
@@ -805,15 +824,16 @@ def cli_coverage_demo(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
+    qlever_file: str | None = None,
 ) -> None:
     """Run constraint violations & class profile audit across entities and generate an interactive HTML report with QuickStatements."""
-    _run_coverage_demo(class_qid, limit, out_path, threshold, lang, nationality, occupation, ethnicity, custom_filters)
+    _run_coverage_demo(class_qid, limit, out_path, threshold, lang, nationality, occupation, ethnicity, custom_filters, qlever_file)
 
 
 @main.command(name="coverage")
 @click.option("--class", "class_qid", default="Q5", show_default=True, callback=validate_qid_option, help="QID of the class/scope, e.g. Q5 (human)")
 @click.option("--limit", default=100, show_default=True, callback=validate_limit_option, help="Max entities to sample")
-@click.option("--out", "out_path", default="debias_wikidata_coverage_demo.html", show_default=True, help="Path to write interactive HTML coverage report")
+@click.option("--out", "out_path", default="dashboard/debias_wikidata_coverage_demo.html", show_default=True, help="Path to write interactive HTML coverage report")
 @click.option("--threshold", default=0.8, show_default=True, help="Peer-frequency threshold for class-profile detector")
 @click.option("--lang", default="en", show_default=True, help="Language code for labels")
 @scope_filter_options
@@ -827,9 +847,10 @@ def cli_coverage_alias(
     occupation: str | None,
     ethnicity: str | None,
     custom_filters: tuple[str, ...],
+    qlever_file: str | None = None,
 ) -> None:
     """Run constraint violations & class profile audit across entities and generate an interactive HTML report with QuickStatements."""
-    _run_coverage_demo(class_qid, limit, out_path, threshold, lang, nationality, occupation, ethnicity, custom_filters)
+    _run_coverage_demo(class_qid, limit, out_path, threshold, lang, nationality, occupation, ethnicity, custom_filters, qlever_file)
 
 
 
@@ -1043,7 +1064,77 @@ def generate_paper_report_cmd(out_dir: str, figures_dir: str) -> None:
     console.print(f"[bold green][OK] Publication paper source ready at [underline]{tex_file}[/underline] and [underline]{md_file}[/underline][/bold green]")
 
 
+@main.command(name="suggest-candidates")
+@click.option("--category", default="all", show_default=True, help="Underrepresented demographic category (or 'all' for across-all-categories discovery)")
+@click.option("--max-candidates", default=5, show_default=True, type=int, help="Maximum candidates to discover")
+@click.option("--country", "country_qid", default=None, callback=validate_qid_option, help="Optional QID of target country (e.g. Q1033 Nigeria)")
+@click.option("--gender", "gender_qid", default=None, callback=validate_qid_option, help="Optional QID of target gender (e.g. Q6581072 female)")
+@click.option("--language", "language_qid", default=None, callback=validate_qid_option, help="Optional QID of target language (e.g. Q7474 Swahili)")
+@click.option("--occupation", "occupation_qid", default=None, callback=validate_qid_option, help="Optional QID of target occupation (e.g. Q1650915 researcher)")
+@click.option("--provider", default="local", show_default=True, help="LLM RAG provider ('local' for Ollama/LM Studio or 'template' for fallback)")
+@click.option("--out-dir", default="data", show_default=True, help="Directory to save raw QuickStatements, Wikitext, and JSON outputs")
+def suggest_candidates_cmd(
+    category: str,
+    max_candidates: int,
+    country_qid: str | None,
+    gender_qid: str | None,
+    language_qid: str | None,
+    occupation_qid: str | None,
+    provider: str,
+    out_dir: str,
+) -> None:
+    """Discover candidates in underrepresented categories, rank sources (WP:RS/MBFC), generate QuickStatements & RAG Wikitext."""
+    from wikidata_coverage.scoring.candidate_ranker import CandidateRanker
+    from wikidata_coverage.suggest.candidate_finder import ExternalCandidateFinder
+    from wikidata_coverage.suggest.rag_generator import FlexibleLLMRAGGenerator, save_candidate_outputs
+
+    console.print(f"[bold cyan]Searching external resources for underrepresented candidates ({category})...[/bold cyan]")
+    finder = ExternalCandidateFinder()
+    ranker = CandidateRanker()
+    rag_gen = FlexibleLLMRAGGenerator()
+
+    raw_candidates = finder.find_candidates(
+        category=category,
+        max_candidates=max_candidates,
+        country_qid=country_qid,
+        gender_qid=gender_qid,
+        language_qid=language_qid,
+        occupation_qid=occupation_qid,
+    )
+    ranked = ranker.rank_candidates(raw_candidates)
+
+    console.print(f"[bold green][OK] Found and ranked {len(ranked)} candidate individuals.[/bold green]\n")
+
+    table = Table(title="Top Discovered & Ranked Candidate Individuals")
+    table.add_column("Rank", style="cyan")
+    table.add_column("Candidate Name", style="bold white")
+    table.add_column("Wikidata Status", style="yellow")
+    table.add_column("Disparity", style="blue")
+    table.add_column("Influence", style="magenta")
+    table.add_column("WP:RS Reliability", style="green")
+    table.add_column("Composite Rank Score", style="bold gold1")
+
+    for idx, c in enumerate(ranked, 1):
+        status_str = f"Existing QID ({c.existing_qid})" if c.existing_qid else "New Item Creation"
+        table.add_row(
+            f"#{idx}",
+            c.name,
+            status_str,
+            f"{c.disparity_score:.2f}",
+            f"{c.influence_score:.2f}",
+            f"{c.reliability_score:.2f}",
+            f"{c.composite_rank_score:.3f}",
+        )
+    console.print(table)
+
+    saved_paths = save_candidate_outputs(ranked, out_dir=out_dir)
+    console.print(f"\n[bold green]Saved raw output files:[/bold green]")
+    console.print(f"  • QuickStatements: [underline]{saved_paths['quickstatements']}[/underline]")
+    console.print(f"  • Wikitext RAG lead sections: [underline]{saved_paths['wikitext']}[/underline]")
+    console.print(f"  • JSON candidate data: [underline]{saved_paths['json']}[/underline]")
+
 
 if __name__ == "__main__":
     main()
+
 

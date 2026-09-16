@@ -18,6 +18,7 @@ from typing import Any
 
 from wikidata_coverage.access.api import ActionApiClient
 from wikidata_coverage.bias.metrics import DisparityMetric
+from wikidata_coverage.core.carbon import CarbonFootprintEstimator
 
 QID_REGEX = re.compile(r"\bQ\d+\b")
 
@@ -25,6 +26,7 @@ QID_REGEX = re.compile(r"\bQ\d+\b")
 @dataclass
 class BiasReport:
     metrics: list[DisparityMetric] = field(default_factory=list)
+    carbon_estimator: CarbonFootprintEstimator = field(default_factory=CarbonFootprintEstimator)
 
     def add(self, metrics: list[DisparityMetric]) -> None:
         self.metrics.extend(metrics)
@@ -46,9 +48,13 @@ class BiasReport:
         label_map = api.get_labels(list(raw_qids), lang=lang)
 
         for m in self.metrics:
+            qids_in_label = QID_REGEX.findall(m.group_label)
+            if not qids_in_label:
+                continue
             new_label = m.group_label
-            for qid, label in label_map.items():
-                if label != qid:
+            for qid in qids_in_label:
+                label = label_map.get(qid)
+                if label and label != qid:
                     if m.axis in ("ethnicity", "ethnicity_and_gender") or "ethnicity" in m.detector:
                         pattern = rf"[^\(\)\n,]+\s*\({qid}\)|\b{qid}\b"
                         new_label = re.sub(pattern, f"{label} ({qid})", new_label)
@@ -91,6 +97,7 @@ class BiasReport:
             "total_metrics": len(self.metrics),
             "axes": list(by_axis.keys()),
             "metrics_per_axis": {axis: len(ms) for axis, ms in by_axis.items()},
+            "carbon_footprint": self.carbon_estimator.summary_dict(),
             "most_underrepresented": [
                 {
                     "axis": m.axis,
@@ -124,6 +131,24 @@ class BiasReport:
             indent=indent,
             default=str,
         )
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> BiasReport:
+        report = cls()
+        metrics_raw = data.get("metrics", [])
+        report.metrics = [DisparityMetric.from_dict(m) for m in metrics_raw if isinstance(m, dict)]
+        return report
+
+    @classmethod
+    def from_json(cls, json_source: str | Path) -> BiasReport:
+        from pathlib import Path
+        p = Path(json_source)
+        if p.exists():
+            text = p.read_text(encoding="utf-8")
+        else:
+            text = str(json_source)
+        data = json.loads(text)
+        return cls.from_dict(data)
 
     def to_csv(self) -> str:
         buf = StringIO()

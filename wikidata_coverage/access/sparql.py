@@ -13,8 +13,26 @@ from typing import Any, Iterable
 
 from SPARQLWrapper import JSON, SPARQLWrapper
 
+import requests
+
 WDQS_ENDPOINT = "https://query.wikidata.org/sparql"
 USER_AGENT = "wikidata-coverage/0.1 (https://github.com/example/wikidata-coverage)"
+
+SPARQL_ENDPOINTS = [
+    "https://qlever.cs.uni-freiburg.de/api/wikidata",
+    "https://qlever.dev/api/wikidata",
+    WDQS_ENDPOINT,
+]
+
+PREFIX_HEADER = """PREFIX wd: <http://www.wikidata.org/entity/>
+PREFIX wdt: <http://www.wikidata.org/prop/direct/>
+PREFIX psv: <http://www.wikidata.org/prop/statement/value/>
+PREFIX p: <http://www.wikidata.org/prop/>
+PREFIX ps: <http://www.wikidata.org/prop/statement/>
+PREFIX pq: <http://www.wikidata.org/prop/qualifier/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX wikibase: <http://wikiba.se/ontology#>
+"""
 
 QID_PATTERN = re.compile(r"^Q\d+$", re.IGNORECASE)
 PID_PATTERN = re.compile(r"^P\d+$", re.IGNORECASE)
@@ -45,24 +63,45 @@ def validate_pid(pid: str | None, param_name: str = "PID") -> str:
 
 
 class SparqlClient:
+    """Multi-endpoint SPARQL query engine pooling QLever (Freiburg & Dev) + WDQS fallback."""
+
     def __init__(
         self,
         endpoint: str = WDQS_ENDPOINT,
         user_agent: str = USER_AGENT,
         max_retries: int = 3,
-        retry_delay_s: float = 2.0,
+        retry_delay_s: float = 1.0,
     ) -> None:
+        self.user_agent = user_agent
+        self.session = requests.Session()
+        self.session.headers.update({"User-Agent": user_agent})
         self._sparql = SPARQLWrapper(endpoint, agent=user_agent)
         self._sparql.setReturnFormat(JSON)
         self.max_retries = max_retries
         self.retry_delay_s = retry_delay_s
 
     def query(self, sparql_query: str) -> list[dict[str, Any]]:
-        """Runs a SPARQL query and returns simplified rows: a list of dicts
-        mapping variable name -> value string (URIs stripped to bare form
-        where possible is left to the caller; we keep raw bindings here)."""
-        self._sparql.setQuery(sparql_query)
+        """Executes a SPARQL query across pooled high-speed QLever endpoints with WDQS fallback."""
+        full_query = sparql_query
+        if "PREFIX" not in sparql_query:
+            full_query = f"{PREFIX_HEADER}\n{sparql_query}"
 
+        # 1. Try high-speed QLever endpoints first (~4-15ms execution)
+        for ep in (SPARQL_ENDPOINTS[0], SPARQL_ENDPOINTS[1]):
+            try:
+                resp = self.session.post(ep, data={"query": full_query}, timeout=15)
+                if resp.status_code == 200:
+                    data = resp.json()
+                    bindings = data.get("results", {}).get("bindings", [])
+                    return [
+                        {var: binding[var]["value"] for var in binding}
+                        for binding in bindings
+                    ]
+            except Exception:
+                continue
+
+        # 2. Fallback to WDQS via SPARQLWrapper
+        self._sparql.setQuery(full_query)
         last_exc: Exception | None = None
         for attempt in range(1, self.max_retries + 1):
             try:
@@ -72,7 +111,7 @@ class SparqlClient:
                     {var: binding[var]["value"] for var in binding}
                     for binding in bindings
                 ]
-            except Exception as exc:  # noqa: BLE001 - broad on purpose, we retry+raise
+            except Exception as exc:
                 last_exc = exc
                 if attempt < self.max_retries:
                     time.sleep(self.retry_delay_s * attempt)
@@ -177,8 +216,8 @@ class SparqlClient:
         if not to_query:
             return {q: cached[q] for q in place_qids if q in cached}
 
-        for start in range(0, len(to_query), 500):
-            batch = to_query[start : start + 500]
+        for start in range(0, len(to_query), 2000):
+            batch = to_query[start : start + 2000]
             values_clause = " ".join(f"wd:{qid}" for qid in batch)
             query = f"""
             SELECT ?place ?lat ?lon ?wkt ?country WHERE {{

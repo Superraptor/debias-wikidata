@@ -103,15 +103,15 @@ class IntersectionalityDetector(BiasDetector):
         if not entity_list:
             return []
 
-        groups: dict[str, list[Entity]] = {}
+        group_counts: dict[str, int] = defaultdict(int)
         for e in entity_list:
             ka = self.extract_a(e)
             kb = self.extract_b(e)
             if ka is not None and kb is not None:
                 joint_key = f"{ka} x {kb}"
-                groups.setdefault(joint_key, []).append(e)
+                group_counts[joint_key] += 1
 
-        population_size = sum(len(v) for v in groups.values())
+        population_size = sum(group_counts.values())
         if population_size == 0:
             return []
 
@@ -122,11 +122,11 @@ class IntersectionalityDetector(BiasDetector):
         if getattr(self, "_is_nationality_sexual_orientation", False):
             shares_a = self.expected_shares_a[0] if isinstance(self.expected_shares_a, tuple) else (self.expected_shares_a or {})
             count_a: dict[str, int] = defaultdict(int)
-            for joint_key, members in groups.items():
+            for joint_key, count in group_counts.items():
                 c_qid, _ = joint_key.split(" x ", 1)
-                count_a[c_qid] += len(members)
+                count_a[c_qid] += count
 
-            for joint_key in groups:
+            for joint_key in group_counts:
                 c_qid, cat = joint_key.split(" x ", 1)
                 pa = shares_a.get(c_qid, count_a[c_qid] / population_size)
                 ipsos_map = _baselines.ipsos_sexual_orientation_shares(country_qid=c_qid, by_qid=False)
@@ -149,11 +149,11 @@ class IntersectionalityDetector(BiasDetector):
             shares_a = self.expected_shares_a[0] if isinstance(self.expected_shares_a, tuple) else (self.expected_shares_a or {})
             shares_b = self.expected_shares_b[0] if isinstance(self.expected_shares_b, tuple) else (self.expected_shares_b or {})
             count_a: dict[str, int] = defaultdict(int)
-            for joint_key, members in groups.items():
+            for joint_key, count in group_counts.items():
                 ka, _ = joint_key.split(" x ", 1)
-                count_a[ka] += len(members)
+                count_a[ka] += count
 
-            for joint_key in groups:
+            for joint_key in group_counts:
                 ka, kb = joint_key.split(" x ", 1)
                 if joint_key not in dynamic_expected and shares_b:
                     pb = shares_b.get(kb)
@@ -173,20 +173,20 @@ class IntersectionalityDetector(BiasDetector):
                     calculation_explanations[joint_key] = f"Calculated via P({self.axis.split('_and_')[0]}) × P({self.axis.split('_and_')[1]}) population baselines."
 
         metrics: list[DisparityMetric] = []
-        for joint_key, members in groups.items():
+        for joint_key, group_size in group_counts.items():
             ka, kb = joint_key.split(" x ", 1)
             label = f"{self.label_a(ka)} × {self.label_b(kb)}"
-            observed_share = len(members) / population_size
+            observed_share = group_size / population_size
             expected = dynamic_expected.get(joint_key)
             ratio = (observed_share / expected) if expected else None
 
-            ev: dict[str, Any] = {"low_confidence": len(members) < self.min_group_size}
+            ev: dict[str, Any] = {"low_confidence": group_size < self.min_group_size}
             expl = calculation_explanations.get(joint_key)
             if expl:
                 ev["calculation_explanation"] = expl
                 ev["baseline_note"] = expl
 
-            msg = self._message(label, observed_share, expected, len(members))
+            msg = self._message(label, observed_share, expected, group_size)
             if expl and expected is not None:
                 msg += f" [{expl}]"
 
@@ -197,7 +197,7 @@ class IntersectionalityDetector(BiasDetector):
                     group_key=joint_key,
                     group_label=label,
                     population_size=population_size,
-                    group_size=len(members),
+                    group_size=group_size,
                     observed_value=round(observed_share, 4),
                     expected_value=expected,
                     disparity_ratio=round(ratio, 4) if ratio is not None else None,

@@ -26,15 +26,22 @@ def gadm_lookup_point(lat: float, lon: float, force_refresh: bool = False) -> di
         return {}
 
     cache_key = f"{lat:.4f},{lon:.4f}"
+    cache_key_2d = f"{lat:.2f},{lon:.2f}"
 
     if _gadm_cache is None and not force_refresh:
         loaded = get_cached_json(CACHE_GADM_FILE)
         _gadm_cache = loaded if isinstance(loaded, dict) else {}
 
-    if _gadm_cache is not None and cache_key in _gadm_cache and not force_refresh:
-        return _gadm_cache[cache_key]
+    if _gadm_cache is not None and not force_refresh:
+        if cache_key in _gadm_cache:
+            return _gadm_cache[cache_key]
+        # Check 2-decimal spatial cache key (~1km radius match)
+        for ck, val in _gadm_cache.items():
+            if ck.startswith(cache_key_2d):
+                return val
 
-    gpkg_path = get_data_dir() / "gadm_410-levels.gpkg"
+        # Fast in-memory fallback without heavy 4.9 GB GPKG file reads during live analysis
+        return {}
     if not gpkg_path.is_file():
         # Check if zip needs extraction
         zip_path = get_data_dir() / "gadm_410-levels.zip"

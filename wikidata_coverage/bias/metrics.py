@@ -56,3 +56,24 @@ class DisparityMetric:
             "message": self.message,
             "evidence": self.evidence,
         }
+
+    @classmethod
+    def from_dict(cls, data: dict[str, Any]) -> DisparityMetric:
+        return cls(
+            axis=data.get("axis", ""),
+            detector=data.get("detector", ""),
+            group_key=data.get("group_key", ""),
+            group_label=data.get("group_label", ""),
+            population_size=data.get("population_size", 0),
+            group_size=data.get("group_size", 0),
+            observed_value=data.get("observed_value", 0.0),
+            expected_value=data.get("expected_value"),
+            disparity_ratio=data.get("disparity_ratio"),
+            severity=data.get("severity", 0.0),
+            ci_lower=data.get("ci_lower"),
+            ci_upper=data.get("ci_upper"),
+            standard_error=data.get("standard_error"),
+            p_value=data.get("p_value"),
+            message=data.get("message", ""),
+            evidence=data.get("evidence") if isinstance(data.get("evidence"), dict) else {},
+        )

@@ -78,19 +78,12 @@ class ConstraintDetector(Detector):
         properties_to_check: list[str] | None = None,
         exclude_fictional: bool = True,
         api_client: ActionApiClient | None = None,
+        max_items: int | None = None,
     ) -> None:
-        """
-        Args:
-            properties_to_check: PIDs whose constraints should be enforced,
-                e.g. ["P569", "P21", "P106"]. If None or empty, all properties
-                present on the entity will be checked for constraint violations.
-            exclude_fictional: if True (default), skips constraint evaluation for
-                fictional entities and fictional characters.
-            api_client: injected for testability; defaults to a live client.
-        """
         self.properties_to_check = properties_to_check
         self.exclude_fictional = exclude_fictional
         self.api = api_client or ActionApiClient()
+        self.max_items = max_items
         self._constraint_cache: dict[str, list[dict[str, Any]]] = {}
 
     def _constraints_for_property(self, property_id: str) -> list[dict[str, Any]]:
@@ -177,11 +170,15 @@ class ConstraintDetector(Detector):
         entities_list = list(entities)
         findings: list[Finding] = []
 
+        # Sort entities by fewest populated properties first (missing most values in QLever TSV)
+        entities_list.sort(key=lambda e: len(e.property_ids()))
+        target_entities = entities_list[: self.max_items] if self.max_items and self.max_items > 0 else entities_list
+
         all_props: set[str] = set()
         if self.properties_to_check:
             all_props.update(self.properties_to_check)
         else:
-            for entity in entities_list:
+            for entity in target_entities:
                 if not (self.exclude_fictional and is_fictional_entity(entity)):
                     all_props.update(entity.property_ids())
 
@@ -189,7 +186,7 @@ class ConstraintDetector(Detector):
         if all_props:
             self.prefetch_property_constraints(list(all_props))
 
-        for entity in entities_list:
+        for entity in target_entities:
             if self.exclude_fictional and is_fictional_entity(entity):
                 continue
 

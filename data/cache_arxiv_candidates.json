@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Eric Werner",
+    "description": "arXiv Preprint Author of 'Stem Cells: The Good, the Bad and the Ugly...'",
+    "publisher": "arXiv.org",
+    "url": "http://arxiv.org/abs/1608.00930v1",
+    "source_api": "arXiv Search API"
+  },
+  {
+    "name": "Dario Sansone",
+    "description": "arXiv Preprint Author of 'Turing's Children: Representation of Sexual Minorities in ST...'",
+    "publisher": "arXiv.org",
+    "url": "http://arxiv.org/abs/2005.06664v1",
+    "source_api": "arXiv Search API"
+  },
+  {
+    "name": "Madhur Srivastava",
+    "description": "arXiv Preprint Author of 'Introduction of Intellectual Property Courses in STEM Curric...'",
+    "publisher": "arXiv.org",
+    "url": "http://arxiv.org/abs/1301.7457v1",
+    "source_api": "arXiv Search API"
+  }
+]

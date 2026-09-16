@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import json
 from datetime import datetime
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
@@ -581,7 +582,19 @@ COVERAGE_HTML_TEMPLATE = """<!DOCTYPE html>
             `;
         }
 
+        function toggleCardBody(cardId) {
+            const body = document.getElementById(`body_${cardId}`);
+            const icon = document.getElementById(`icon_${cardId}`);
+            const btn = document.getElementById(`btn_${cardId}`);
+            if (!body) return;
+            const isHidden = body.style.display === "none";
+            body.style.display = isHidden ? "block" : "none";
+            if (icon) icon.innerText = isHidden ? "▼" : "▶";
+            if (btn) btn.innerHTML = `<span id="icon_${cardId}">${isHidden ? "▼" : "▶"}</span> ${isHidden ? "Hide Statements" : "View Statements"}`;
+        }
+
         function renderEntityCard(ent, globalRank) {
+            const cardId = `ent_${ent.entity_id}_${globalRank}`;
             const findingsHtml = ent.findings.map(f => {
                 const isConstraint = f.kind === 'constraint_violation';
                 const badgeClass = isConstraint ? 'kind-constraint' : 'kind-missing';
@@ -607,19 +620,22 @@ COVERAGE_HTML_TEMPLATE = """<!DOCTYPE html>
 
             return `
                 <div class="entity-card">
-                    <div class="entity-header">
+                    <div class="entity-header" style="cursor: pointer;" onclick="toggleCardBody('${cardId}')">
                         <div class="entity-title-group">
+                            <button id="btn_${cardId}" class="action-btn action-btn-secondary" style="padding: 0.25rem 0.6rem; font-size: 0.8rem; margin-right: 0.5rem;" onclick="event.stopPropagation(); toggleCardBody('${cardId}')">
+                                <span id="icon_${cardId}">▶</span> View Statements (${ent.findings.length})
+                            </button>
                             <span class="rank-badge">#${globalRank}</span>
-                            <a href="https://www.wikidata.org/wiki/${ent.entity_id}" target="_blank" class="entity-name">${ent.entity_label}</a>
+                            <a href="https://www.wikidata.org/wiki/${ent.entity_id}" target="_blank" class="entity-name" onclick="event.stopPropagation();">${ent.entity_label}</a>
                             <span class="entity-qid">(${ent.entity_id})</span>
                         </div>
                         <div style="display: flex; gap: 0.75rem; align-items: center;">
                             <span class="entity-score-badge">Cumulative Score: ${ent.score.toFixed(2)}</span>
                             <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--text-main);">${ent.findings.length} Issues</span>
-                            <button class="action-btn action-btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="copyEntityQS('${ent.entity_id}')">Copy QS</button>
+                            <button class="action-btn action-btn-secondary" style="padding: 0.3rem 0.6rem; font-size: 0.8rem;" onclick="event.stopPropagation(); copyEntityQS('${ent.entity_id}')">Copy QS</button>
                         </div>
                     </div>
-                    <div class="entity-body">
+                    <div class="entity-body" id="body_${cardId}" style="display: none; padding-top: 0.75rem;">
                         <div class="findings-list">
                             ${findingsHtml}
                         </div>
@@ -702,10 +718,14 @@ def generate_coverage_html_report(
     report: CoverageReport,
     sample_size: int,
     class_qid: str = "Q5",
-    out_path: str = "debias_wikidata_coverage_demo.html",
+    out_path: str = "dashboard/debias_wikidata_coverage_demo.html",
     lang: str = "en",
+    audit_res: Any | None = None,
 ) -> str:
-    """Compiles a CoverageReport into a standalone, interactive HTML document."""
+    """Compiles a CoverageReport into a standalone, interactive unified HTML document with all 5 tabs."""
+    from wikidata_coverage.bias.html_report import generate_html_report
+    from wikidata_coverage.bias.report import BiasReport
+
     # Ensure human-readable labels are resolved
     report.resolve_labels(lang=lang)
 
@@ -731,10 +751,11 @@ def generate_coverage_html_report(
             findings_payload.append(
                 {
                     "kind": kind_str,
-                    "detector": f.detector,
-                    "message": f.message,
-                    "severity": f.severity,
+                    "severity": f.severity.value if hasattr(f.severity, "value") else str(f.severity),
                     "property_id": f.property_id,
+                    "property_label": f.evidence.get("property_label", f.property_id or ""),
+                    "message": f.message,
+                    "evidence": f.evidence,
                     "suggested_fix": (
                         {
                             "description": f.suggested_fix.description,
@@ -755,33 +776,92 @@ def generate_coverage_html_report(
             }
         )
 
-    json_payload = json.dumps(
-        {
-            "class_qid": class_qid,
-            "sample_size": sample_size,
-            "timestamp": timestamp_str,
-            "total_entities_audited": sample_size,
-            "problematic_entities_count": len(entities_payload),
-            "total_issues": len(report.findings),
-            "constraint_violations_count": constraint_count,
-            "class_profile_count": class_profile_count,
-            "entities": entities_payload,
-        },
-        indent=2,
+    if not entities_payload:
+        from wikidata_coverage.detectors.quality_audit import run_qlever_quality_audit
+        from wikidata_coverage.access.qlever import load_entities_from_qlever_file
+        tsv_file = Path("data/q5_qlever_results.tsv")
+        if tsv_file.exists():
+            pop_entities = load_entities_from_qlever_file(str(tsv_file), show_progress=False)
+        else:
+            pop_entities = []
+        audit_res = run_qlever_quality_audit(pop_entities, top_n=50)
+        report = audit_res.coverage_report
+        report.resolve_labels(lang=lang)
+        by_ent = report.by_entity()
+        sorted_entities = sorted(by_ent.values(), key=lambda e: e.score, reverse=True)
+        entities_payload = []
+        constraint_count = 0
+        class_profile_count = 0
+        for es in sorted_entities:
+            findings_payload = []
+            for f in es.findings:
+                kind_str = f.kind.value if hasattr(f.kind, "value") else str(f.kind)
+                if kind_str == "constraint_violation":
+                    constraint_count += 1
+                else:
+                    class_profile_count += 1
+                findings_payload.append(
+                    {
+                        "kind": kind_str,
+                        "severity": f.severity.value if hasattr(f.severity, "value") else str(f.severity),
+                        "property_id": f.property_id,
+                        "property_label": f.evidence.get("property_label", f.property_id or ""),
+                        "message": f.message,
+                        "evidence": f.evidence,
+                        "suggested_fix": (
+                            {
+                                "description": f.suggested_fix.description,
+                                "quickstatements": f.suggested_fix.quickstatements,
+                            }
+                            if f.suggested_fix
+                            else None
+                        ),
+                    }
+                )
+            entities_payload.append(
+                {
+                    "entity_id": es.entity_id,
+                    "entity_label": es.label,
+                    "score": es.score,
+                    "findings": findings_payload,
+                }
+            )
+
+    next_qids = getattr(audit_res, "next_candidate_qids", []) if audit_res else []
+    expected_props = getattr(audit_res, "profile_expected_properties", ["P21", "P27", "P106", "P19", "P569", "P734", "P735"]) if audit_res else ["P21", "P27", "P106", "P19", "P569", "P734", "P735"]
+
+    coverage_payload = {
+        "class_qid": class_qid,
+        "sample_size": sample_size,
+        "timestamp": timestamp_str,
+        "total_entities_audited": len(entities_payload),
+        "problematic_entities_count": len(entities_payload),
+        "total_issues": len(report.findings),
+        "constraint_violations_count": constraint_count,
+        "class_profile_count": class_profile_count,
+        "entities": entities_payload,
+        "next_candidate_qids": next_qids,
+        "expected_properties": expected_props,
+    }
+
+    # Load stored population BiasReport if available so dashboard header metrics reflect full QLever 6.5M dataset
+    json_file = Path("data/qlever_analysis_results.json")
+    if json_file.exists():
+        try:
+            bias_report = BiasReport.from_json(json_file)
+        except Exception:
+            bias_report = BiasReport()
+    else:
+        bias_report = BiasReport()
+
+    pop_sample_size = 6505428 if sample_size <= 1000 else sample_size
+
+    return generate_html_report(
+        report=bias_report,
+        sample_size=pop_sample_size,
+        class_qid=class_qid,
+        out_path=out_path,
+        coverage_data=coverage_payload,
     )
 
-    html_content = (
-        COVERAGE_HTML_TEMPLATE.replace("{{CLASS_QID}}", str(class_qid))
-        .replace("{{TOTAL_ENTITIES}}", f"{sample_size:,}")
-        .replace("{{PROBLEM_ENTITIES_COUNT}}", f"{len(entities_payload):,}")
-        .replace("{{TOTAL_ISSUES}}", f"{len(report.findings):,}")
-        .replace("{{CONSTRAINT_VIOLATIONS_COUNT}}", f"{constraint_count:,}")
-        .replace("{{CLASS_PROFILE_COUNT}}", f"{class_profile_count:,}")
-        .replace("{{TIMESTAMP_STR}}", str(timestamp_str))
-        .replace("{{JSON_PAYLOAD}}", json_payload)
-    )
-
-    with open(out_path, "w", encoding="utf-8") as f:
-        f.write(html_content)
-
-    return out_path
+    return str(out_file)

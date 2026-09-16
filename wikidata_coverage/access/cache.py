@@ -36,13 +36,20 @@ def get_cached_json(filename: str) -> Any | None:
 
 
 def save_cached_json(filename: str, data: Any) -> None:
-    """Write JSON structure to data/<filename>."""
+    """Write JSON structure to data/<filename> atomically using temp file replacement."""
     path = get_data_dir() / filename
+    temp_path = get_data_dir() / f"{filename}.tmp"
     try:
-        with open(path, "w", encoding="utf-8") as f:
+        with open(temp_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
-            logger.debug("Saved cache to %s", path)
+        temp_path.replace(path)
+        logger.debug("Saved cache to %s", path)
     except Exception as exc:
+        if temp_path.exists():
+            try:
+                temp_path.unlink()
+            except Exception:
+                pass
         logger.warning("Failed to save cache %s: %s", path, exc)
 
 

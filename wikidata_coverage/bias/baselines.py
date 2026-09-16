@@ -682,53 +682,59 @@ def classify_places_by_type(
     sparql: "SparqlClient",
     place_qids: list[str],
 ) -> dict[str, str]:
-    """Returns ``{place_qid: "urban" | "rural" | "unclassified"}`` for a batch.
+    """Returns ``{place_qid: "urban" | "rural" | "unclassified"}`` for a batch with persistent disk caching.
 
     Queries P31 (instance of) for each QID in ``place_qids`` and matches
-    against ``URBAN_TYPES`` / ``RURAL_TYPES``. Results are NOT module-cached
-    because the QID set varies per ``run()`` call.
-
-    A place is "urban" if *any* of its P31 values is in ``URBAN_TYPES``,
-    "rural" if *any* is in ``RURAL_TYPES`` (and none in URBAN_TYPES), and
-    "unclassified" otherwise.
+    against ``URBAN_TYPES`` / ``RURAL_TYPES``. Results are cached to data/cache_place_type_classifications.json.
     """
     if not place_qids:
         return {}
 
-    values_clause = " ".join(f"wd:{qid}" for qid in place_qids)
-    query = f"""
-    SELECT ?place ?placeType WHERE {{
-      VALUES ?place {{ {values_clause} }}
-      ?place wdt:P31 ?placeType .
-    }}
-    """
+    from wikidata_coverage.access.cache import get_cached_json, save_cached_json
+    cache_key = "cache_place_type_classifications.json"
+    cached: dict[str, str] = get_cached_json(cache_key) or {}
 
-    try:
-        rows = sparql.query(query)
-    except Exception as exc:
-        logger.warning(
-            "classify_places_by_type: SPARQL failed — %s. All places → unclassified.", exc
-        )
-        return {qid: "unclassified" for qid in place_qids}
+    missing_qids = [q for q in place_qids if q not in cached]
 
-    # Accumulate all P31 type QIDs per place
-    place_types: dict[str, set[str]] = {qid: set() for qid in place_qids}
-    for row in rows:
-        place_qid = row.get("place", "").rsplit("/", 1)[-1]
-        type_qid = row.get("placeType", "").rsplit("/", 1)[-1]
-        if place_qid in place_types:
-            place_types[place_qid].add(type_qid)
+    if missing_qids:
+        newly_classified = False
+        for start in range(0, len(missing_qids), 2000):
+            batch = missing_qids[start : start + 2000]
+            values_clause = " ".join(f"wd:{qid}" for qid in batch)
+            query = f"""
+            SELECT ?place ?placeType WHERE {{
+              VALUES ?place {{ {values_clause} }}
+              ?place wdt:P31 ?placeType .
+            }}
+            """
+            try:
+                rows = sparql.query(query)
+                place_types: dict[str, set[str]] = {qid: set() for qid in batch}
+                for row in rows:
+                    place_qid = row.get("place", "").rsplit("/", 1)[-1]
+                    type_qid = row.get("placeType", "").rsplit("/", 1)[-1]
+                    if place_qid in place_types:
+                        place_types[place_qid].add(type_qid)
 
-    result: dict[str, str] = {}
-    for qid, types in place_types.items():
-        if types & URBAN_TYPES:
-            result[qid] = "urban"
-        elif types & RURAL_TYPES:
-            result[qid] = "rural"
-        else:
-            result[qid] = "unclassified"
+                for qid, types in place_types.items():
+                    if types & URBAN_TYPES:
+                        cached[qid] = "urban"
+                    elif types & RURAL_TYPES:
+                        cached[qid] = "rural"
+                    else:
+                        cached[qid] = "unclassified"
+                newly_classified = True
+            except Exception as exc:
+                logger.warning(
+                    "classify_places_by_type SPARQL batch failed: %s. Defaulting batch to unclassified.", exc
+                )
+                for qid in batch:
+                    cached[qid] = "unclassified"
 
-    return result
+        if newly_classified:
+            save_cached_json(cache_key, cached)
+
+    return {qid: cached.get(qid, "unclassified") for qid in place_qids}
 
 
 # ---------------------------------------------------------------------------

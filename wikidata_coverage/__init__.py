@@ -16,6 +16,10 @@ from wikidata_coverage.bias.report import BiasReport
 from wikidata_coverage.core.entity import Entity
 from wikidata_coverage.core.finding import Finding, FindingKind, Severity
 from wikidata_coverage.core.report import CoverageReport
+from wikidata_coverage.scoring.candidate_ranker import CandidateRanker, SourceReliabilityScorer
+from wikidata_coverage.scoring.mbfc_cache import MBFCCache
+from wikidata_coverage.suggest.candidate_finder import CandidateIndividual, CandidateSource, ExternalCandidateFinder
+from wikidata_coverage.suggest.rag_generator import FlexibleLLMRAGGenerator, generate_quickstatements_for_candidate
 
 __all__ = [
     # Coverage (entity-level)
@@ -27,6 +31,16 @@ __all__ = [
     # Bias (group-level)
     "BiasReport",
     "DisparityMetric",
+    # Candidate Discovery & Source Ranking
+    "CandidateIndividual",
+    "CandidateSource",
+    "ExternalCandidateFinder",
+    "CandidateRanker",
+    "SourceReliabilityScorer",
+    "MBFCCache",
+    "FlexibleLLMRAGGenerator",
+    "generate_quickstatements_for_candidate",
 ]
 
 __version__ = "0.1.0"
+

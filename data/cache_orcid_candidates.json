@@ -1,0 +1,42 @@
+[
+  {
+    "name": "Stephen Owoko",
+    "given_name": "Stephen",
+    "family_name": "Owoko",
+    "orcid": "0000-0002-2033-517X",
+    "description": "ORCID iD 0000-0002-2033-517X (Innovations for Poverty Action Kenya)",
+    "source_api": "ORCID Public API"
+  },
+  {
+    "name": "Prof. Muathe  S. Makau A. PhD",
+    "given_name": "Prof. Muathe  S.",
+    "family_name": "Makau A. PhD",
+    "orcid": "0000-0001-8192-5774",
+    "description": "ORCID iD 0000-0001-8192-5774 (Kenya Institute of Management)",
+    "source_api": "ORCID Public API"
+  },
+  {
+    "name": "LUCY WAJIRU KAMAU NGUGI",
+    "given_name": "LUCY",
+    "family_name": "WAJIRU KAMAU NGUGI",
+    "orcid": "0000-0002-7578-751X",
+    "description": "ORCID iD 0000-0002-7578-751X (Kenyatta University)",
+    "source_api": "ORCID Public API"
+  },
+  {
+    "name": "Job Omagwa, PhD",
+    "given_name": "Job",
+    "family_name": "Omagwa, PhD",
+    "orcid": "0000-0002-6852-2863",
+    "description": "ORCID iD 0000-0002-6852-2863 (Consolidated Bank of Kenya Limited)",
+    "source_api": "ORCID Public API"
+  },
+  {
+    "name": "Beatrice Awori",
+    "given_name": "Beatrice",
+    "family_name": "Awori",
+    "orcid": "0000-0002-5832-3692",
+    "description": "ORCID iD 0000-0002-5832-3692 (Jaramogi Oginga Odinga University of Science and Technology)",
+    "source_api": "ORCID Public API"
+  }
+]
