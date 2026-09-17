@@ -31,5 +31,16 @@
     "publication_year": 2025,
     "citation_count": 0,
     "source_api": "Crossref Works API"
+  },
+  {
+    "name": "Seamus Duggan",
+    "given_name": "Seamus",
+    "family_name": "Duggan",
+    "description": "Author of 'George Padmore...'",
+    "doi": "10.7765/9781526156839.00012",
+    "publisher": "Manchester University Press",
+    "publication_year": 2021,
+    "citation_count": 0,
+    "source_api": "Crossref Works API"
   }
 ]

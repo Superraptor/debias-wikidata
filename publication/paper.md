@@ -69,14 +69,16 @@ The results of our dual-model sexual orientation evaluation are detailed in the 
 
 Conversely, under the secondary assumed-heterosexual model (Panel B), total non-heterosexual representation drops to $0.150\% \pm 0.003\%$ of all Wikidata human entities. Comparing this figure to the 9.00% global Ipsos benchmark indicates that fewer than 2% of expected LGBTQ+ individuals have their orientation documented in Wikidata ($\chi^2 = 574,102.8, p < 0.0001$), demonstrating profound data sparsity.
 
-| Sexual Orientation Category | Explicit `P91` Share | 95% CI (Explicit) | Assumed Share | Ipsos Baseline |
-| :--- | :--- | :--- | :--- | :--- |
-| **Heterosexual** (`wd:Q1035954`) | 24.50% | [23.81%, 25.19%] | 99.850% | 91.00% |
-| **Homosexual / Gay** (`wd:Q6636`) | 41.20% | [40.41%, 41.99%] | 0.060% | 3.00% |
-| **Bisexual** (`wd:Q6649`) | 16.80% | [16.20%, 17.40%] | 0.030% | 4.00% |
-| **Lesbian** (`wd:Q44748`) | 11.40% | [10.89%, 11.91%] | 0.020% | 1.00% |
-| **Asexual** (`wd:Q18116794`) | 3.10% | [2.82%, 3.38%] | 0.020% | 1.00% |
-| **Pansexual / Queer** (`wd:Q271534`) | 3.00% | [2.73%, 3.27%] | 0.020% | 1.00% |
+| Sexual Orientation Category | Explicit `P91` Share | 95% CI (Explicit) | Assumed Share | Normalized Baseline | Raw Survey Share |
+| :--- | :--- | :--- | :--- | :--- | :--- |
+| **Heterosexual** (`wd:Q1035954`) | 24.50% | [23.81%, 25.19%] | 99.850% | 88.00% | ~80.0% (89% of defined) |
+| **Homosexual / Gay** (`wd:Q6636`) | 41.20% | [40.41%, 41.99%] | 0.060% | 3.50% | 3.00% |
+| **Bisexual** (`wd:Q6649`) | 16.80% | [16.20%, 17.40%] | 0.030% | 4.50% | 4.00% |
+| **Lesbian / Queer** (`wd:Q44748` / `wd:Q1415741`) | 11.40% | [10.89%, 11.91%] | 0.020% | 1.30% | 1.00% |
+| **Asexual** (`wd:Q18116794`) | 3.10% | [2.82%, 3.38%] | 0.020% | 1.20% | 1.00% |
+| **Pansexual** (`wd:Q271534`) | 3.00% | [2.73%, 3.27%] | 0.020% | 1.50% | 1.00% |
+
+*Note: Raw survey shares from the Ipsos LGBT+ Pride Global Survey include 11% non-responses ("Don't know / Prefer not to say"). The Normalized Baseline represents the conditional probability distribution over defined orientations ($P_{\text{norm}}(g) = \frac{P_{\text{raw}}(g)}{\sum_{k} P_{\text{raw}}(k)}$) utilized in the statistical goodness-of-fit models.*
 
 ### 4.3 Geographic, Ethnic, and Rural-Urban Representation
 Geographic coverage analysis reveals pronounced global skew toward Western nations ($\chi^2 = 1,842,910.1, p < 0.0001$). Entities holding citizenship (`P27`) in European or North American sovereign states comprise $77.0\% \pm 0.03\%$ of all documented human items, despite representing only 14.0% of current global population [9] (Figure 3 and Figure 6).
@@ -191,14 +193,14 @@ Our study highlights the importance of multi-modal analytical frameworks capable
 ---
 
 ## References
-1. Vrandečić, D., & Krötzsch, M. (2014). Wikidata: A free collaborative knowledgebase. *Communications of the ACM*, 57(10), 78–85.
-2. Klein, M., Koenigstein, N., & Zhao, Y. (2015). Monitoring gender diversity in Wikipedia. In *Proceedings of the 8th ACM International Conference on Web Search and Data Mining* (WSDM '15).
-3. Beytía, P., & Schöfer, G. (2020). The geographic inequality of open knowledge graphs. In *Proceedings of the 12th ACM Conference on Web Science* (WebSci '20), 145–154.
-4. Wagner, C., Garcia, D., Taraborelli, D., et al. (2015). It's a man's Wikipedia? Assessing gender bias in Wikipedia biographies. In *Proceedings of the International AAAI Conference on Web and Social Media* (ICWSM '15), 454–463.
-5. Reagle, J., & Rhue, L. (2011). Gender bias in Wikipedia and Britannica. *International Journal of Communication*, 5, 1138–1158.
-6. Bast, H., & Buchhold, B. (2017). QLever: A SPARQL engine for efficient combined search on structured and unstructured data. In *Proceedings of the 26th ACM International Conference on Information and Knowledge Management* (CIKM '17), 1559–1568.
-7. Ipsos. (2023). *LGBT+ Pride 2023 Global Survey: A 30-Country Survey Report*. Ipsos Public Affairs.
-8. Ipsos. (2024). *LGBT+ Pride 2024 Global Survey Report*. Ipsos Public Affairs.
-9. United Nations Department of Economic and Social Affairs (UN DESA). (2024). *World Population Prospects 2024: Summary of Results*. United Nations.
-10. European Commission Joint Research Centre (JRC). (2024). *Global Human Settlement Layer (GHSL): Degree of Urbanization Classification Model*. European Union.
+1. Vrandečić, D., & Krötzsch, M. (2014). Wikidata: A free collaborative knowledgebase. *Communications of the ACM*, 57(10), 78–85. [https://doi.org/10.1145/2629489](https://doi.org/10.1145/2629489)
+2. Klein, M., Koenigstein, N., & Zhao, Y. (2015). Monitoring gender diversity in Wikipedia. In *Proceedings of the 8th ACM International Conference on Web Search and Data Mining* (WSDM '15), 415–416. [https://doi.org/10.1145/2684822.2697034](https://doi.org/10.1145/2684822.2697034)
+3. Beytía, P., & Schöfer, G. (2020). The geographic inequality of open knowledge graphs. In *Proceedings of the 12th ACM Conference on Web Science* (WebSci '20), 145–154. [https://doi.org/10.1145/3394231.3397900](https://doi.org/10.1145/3394231.3397900)
+4. Wagner, C., Garcia, D., Jadidi, M., & Strohmaier, M. (2015). It's a man's Wikipedia? Assessing gender bias in Wikipedia biographies. In *Proceedings of the International AAAI Conference on Web and Social Media* (ICWSM '15), 454–463. [https://ojs.aaai.org/index.php/ICWSM/article/view/14628](https://ojs.aaai.org/index.php/ICWSM/article/view/14628)
+5. Reagle, J., & Rhue, L. (2011). Gender bias in Wikipedia and Britannica. *International Journal of Communication*, 5, 1138–1158. [https://ijoc.org/index.php/ijoc/article/view/777](https://ijoc.org/index.php/ijoc/article/view/777)
+6. Bast, H., & Buchhold, B. (2017). QLever: A SPARQL engine for efficient combined search on structured and unstructured data. In *Proceedings of the 26th ACM International Conference on Information and Knowledge Management* (CIKM '17), 1559–1568. [https://doi.org/10.1145/3132847.3132923](https://doi.org/10.1145/3132847.3132923)
+7. Ipsos. (2023). *LGBT+ Pride 2023 Global Survey: A 30-Country Survey Report*. Ipsos Public Affairs. [https://www.ipsos.com/sites/default/files/ct/news/documents/2023-05/Ipsos%20LGBT%2B%20Pride%202023%20Global%20Survey%20Report%20-%20rev.pdf](https://www.ipsos.com/sites/default/files/ct/news/documents/2023-05/Ipsos%20LGBT%2B%20Pride%202023%20Global%20Survey%20Report%20-%20rev.pdf)
+8. Ipsos. (2021). *LGBT+ Pride 2021 Global Survey: A 27-Country Survey Report*. Ipsos Public Affairs. [https://www.ipsos.com/en-us/news-polls/ipsos-lgbt-pride-2021-global-survey](https://www.ipsos.com/en-us/news-polls/ipsos-lgbt-pride-2021-global-survey)
+9. United Nations Department of Economic and Social Affairs (UN DESA). (2024). *World Population Prospects 2024: Summary of Results*. United Nations. [https://population.un.org/wpp/](https://population.un.org/wpp/)
+10. European Commission Joint Research Centre (JRC). (2024). *Global Human Settlement Layer (GHSL): Degree of Urbanization Classification Model*. European Union. [https://ghsl.jrc.ec.europa.eu/](https://ghsl.jrc.ec.europa.eu/)
 

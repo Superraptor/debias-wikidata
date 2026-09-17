@@ -3,36 +3,46 @@
 Population Baselines & Sources
 -------------------------------
 Baseline expectations are derived from the official Ipsos LGBT+ Pride Global Surveys:
-* Ipsos LGBT+ Pride 2023 Global Survey (30-Country Report):
-  https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey
+* Ipsos LGBT+ Pride 2023 Global Survey (Full 30-Country Report PDF):
+  https://www.ipsos.com/sites/default/files/ct/news/documents/2023-05/Ipsos%20LGBT%2B%20Pride%202023%20Global%20Survey%20Report%20-%20rev.pdf
+* Ipsos LGBT+ Pride 2023 Survey Overview & Findings:
+  https://www.ipsos.com/en/pride-month-2023-9-of-adults-identify-as-lgbt
+* Ipsos LGBT+ Pride 2021 Global Survey (27-Country Report):
+  https://www.ipsos.com/en-us/news-polls/ipsos-lgbt-pride-2021-global-survey
 * Ipsos LGBT+ Pride 2024 Global Survey:
-  https://www.ipsos.com/en/lgbt-pride-2024
+  https://www.ipsos.com/en-us/news-polls/ipsos-lgbt-pride-2024-global-survey
 
-Both global averages and country-specific statistics (for surveyed countries such as Brazil,
-Spain, USA, UK, France, Germany, Japan, Australia, Canada, etc.) are available.
+Both global 30-country averages and country-specific statistics (e.g. Brazil, Spain, USA,
+UK, France, Germany, Japan, Australia, Canada, Netherlands, South Korea, etc.) are available.
+Baseline percentages represent normalized conditional distributions over defined orientation
+categories (excluding "Don't know / Prefer not to say" survey non-responses).
 
 IMPORTANT — what this detector measures and what it doesn't
 -----------------------------------------------------------
 It measures the **distribution of recorded values** among Wikidata entities
-that *already have* P91 stated. It does **not**:
+that *already have* P91 stated (Primary Analysis / Explicit Model), or under an imputed
+Assumed-Heterosexual model for unstated items (Secondary Analysis). It does **not**:
 
 * Flag any entity for *missing* P91. Sexual orientation is a deeply personal
   attribute; Wikidata policy is that it should only be recorded where it is
-  publicly stated by the person themselves. Absence of P91 is not a coverage
-  gap to be reported.
+  publicly stated by the person themselves. Absence of P91 is not an individual
+  error to be mechanically populated, but rather evaluated at aggregate macro scale.
 
 Note on P91 and Wikidata coverage quality
 -----------------------------------------
-Because P91 is recorded only for entities where it is publicly known, any
-sample will inherently over-represent sexual minorities who have been openly
+Because P91 is recorded only for entities where it is publicly known, explicit
+samples inherently over-represent sexual minorities who have been openly
 public about their orientation (activists, artists, politicians). This
-selection bias should be considered when interpreting the output.
+selection bias (MNAR) is explicitly modeled and compared against the assumed baseline.
 """
 
 from __future__ import annotations
 
+from typing import Iterable
+
 from wikidata_coverage.bias import baselines
 from wikidata_coverage.bias.base import GroupShareDetector
+from wikidata_coverage.bias.metrics import DisparityMetric
 from wikidata_coverage.core.entity import Entity
 
 # Known P91 value QIDs and their human-readable labels.
@@ -78,8 +88,9 @@ class SexualOrientationDetector(GroupShareDetector):
     P91 values are assumed heterosexual.
 
     By default, uses population statistics from the Ipsos LGBT+ Pride Global Surveys:
-    - 2023 Survey: https://www.ipsos.com/en/ipsos-lgbt-pride-2023-global-survey
-    - 2024 Survey: https://www.ipsos.com/en/lgbt-pride-2024
+    - 2023 Survey Report PDF: https://www.ipsos.com/sites/default/files/ct/news/documents/2023-05/Ipsos%20LGBT%2B%20Pride%202023%20Global%20Survey%20Report%20-%20rev.pdf
+    - 2023 Survey Overview: https://www.ipsos.com/en/pride-month-2023-9-of-adults-identify-as-lgbt
+    - 2024 Survey: https://www.ipsos.com/en-us/news-polls/ipsos-lgbt-pride-2024-global-survey
 
     Supports both global 30-country averages and country-specific baselines
     (e.g., country_qid="Q155" for Brazil, country_qid="Q30" for USA).

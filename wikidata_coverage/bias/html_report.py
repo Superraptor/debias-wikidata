@@ -749,8 +749,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
                 { topic: "NLP Model Compute & Energy Costs", citation: "Strubell, E., Ganesh, A., & McCallum, A. (2019). Energy and Policy Considerations for Deep Learning in NLP. Proceedings of ACL 2019, 3645-3650.", url: "https://aclanthology.org/P19-1355/" },
                 { topic: "Gender Bias in Wikipedia Biographies", citation: "Reagle, J., & Rhue, L. (2011). Gender Bias in Wikipedia and Britannica. International Journal of Communication, 5, 1138-1158.", url: "https://ijoc.org/index.php/ijoc/article/view/777" },
                 { topic: "Gender Inequalities Across Wikipedia Editions", citation: "Wagner, C., Garcia, D., Jadidi, M., & Strohmaier, M. (2015). It's a Man's Wikipedia? Assessing Gender Bias in Wikipedia Articles. Proceedings of ICWSM 2015, 454-463.", url: "https://ojs.aaai.org/index.php/ICWSM/article/view/14628" },
-                { topic: "Global South Representation Gaps", citation: "Beytía, P. (2020). The Positioning of Countries in Global Knowledge Graphs. Journal of Cultural Analytics, 5(2), 1-28.", url: "https://culturalanalytics.org/article/13011" },
-                { topic: "Global LGBTQ+ Demographics & Survey Benchmarks", citation: "Ipsos. (2023). LGBT+ Pride 2023 Global Survey Report. Ipsos Research Institute, Paris, France.", url: "https://www.ipsos.com/en/lgbt-pride-2023-global-survey" }
+                { topic: "Global LGBTQ+ Demographics & Survey Benchmarks", citation: "Ipsos. (2023). LGBT+ Pride 2023 Global Survey: A 30-Country Survey Report. Ipsos Public Affairs.", url: "https://www.ipsos.com/sites/default/files/ct/news/documents/2023-05/Ipsos%20LGBT%2B%20Pride%202023%20Global%20Survey%20Report%20-%20rev.pdf" }
             ];
 
             const refsListHtml = realLit.map(r => `<li><strong>${r.topic}:</strong> ${r.citation} <a href="${r.url}" target="_blank" style="color: #38bdf8; text-decoration: underline;">[View Publication / DOI]</a></li>`).join("");

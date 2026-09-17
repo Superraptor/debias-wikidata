@@ -1,0 +1,409 @@
+{
+  "metadata": {
+    "total_entities": 6505428,
+    "timestamp": "2026-09-16 18:13:42Z",
+    "methodology": "Little's (1988) MCAR Chi-square Test via EM Algorithm"
+  },
+  "overall": {
+    "d2": 28003.59803152475,
+    "df": 1106,
+    "p_value": 0.0,
+    "is_mcar": false,
+    "n_samples": 100000,
+    "n_features": 9,
+    "n_patterns": 224,
+    "iterations": 29,
+    "missingness_by_feature": {
+      "birth_year": 0.40473,
+      "death_year": 0.74624,
+      "sitelinks_count": 0.0,
+      "has_birth_place": 0.71426,
+      "has_death_place": 0.89297,
+      "has_citizenship": 0.6172,
+      "has_occupation": 0.29747,
+      "has_given_name": 0.51256,
+      "has_language": 0.79439
+    },
+    "status": "Success"
+  },
+  "axes": {
+    "gender": {
+      "Female (Q6581072)": {
+        "d2": 17217.30748041735,
+        "df": 1016,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 207,
+        "iterations": 41,
+        "missingness_by_feature": {
+          "birth_year": 0.4133,
+          "death_year": 0.80102,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.73082,
+          "has_death_place": 0.92694,
+          "has_citizenship": 0.5908,
+          "has_occupation": 0.32112,
+          "has_given_name": 0.4855,
+          "has_language": 0.76584
+        },
+        "status": "Success",
+        "total_in_stratum": 1499448
+      },
+      "Male (Q6581097)": {
+        "d2": 14813.146354279408,
+        "df": 1039,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 210,
+        "iterations": 21,
+        "missingness_by_feature": {
+          "birth_year": 0.31772,
+          "death_year": 0.66922,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.63806,
+          "has_death_place": 0.84612,
+          "has_citizenship": 0.53108,
+          "has_occupation": 0.25172,
+          "has_given_name": 0.41538,
+          "has_language": 0.7418
+        },
+        "status": "Success",
+        "total_in_stratum": 3718514
+      },
+      "Nonbinary / Minoritized Genders": {
+        "d2": 1303.620395964077,
+        "df": 604,
+        "p_value": 1.8902694419108432e-53,
+        "is_mcar": false,
+        "n_samples": 4366,
+        "n_features": 9,
+        "n_patterns": 125,
+        "iterations": 73,
+        "missingness_by_feature": {
+          "birth_year": 0.478240952817224,
+          "death_year": 0.9067796610169492,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.6239120476408612,
+          "has_death_place": 0.9470911589555657,
+          "has_citizenship": 0.26820888685295463,
+          "has_occupation": 0.08222629409070087,
+          "has_given_name": 0.5013742556115437,
+          "has_language": 0.587036188731104
+        },
+        "status": "Success",
+        "total_in_stratum": 4366
+      },
+      "Unstated / Missing Gender": {
+        "d2": 16426.40796960273,
+        "df": 675,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 145,
+        "iterations": 89,
+        "missingness_by_feature": {
+          "birth_year": 0.66136,
+          "death_year": 0.9251,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.91822,
+          "has_death_place": 0.98852,
+          "has_citizenship": 0.91012,
+          "has_occupation": 0.39726,
+          "has_given_name": 0.83548,
+          "has_language": 0.97904
+        },
+        "status": "Success",
+        "total_in_stratum": 1283100
+      }
+    },
+    "sexual_orientation": {
+      "Assumed Heterosexual (Unstated P91)": {
+        "d2": 13988.18723272481,
+        "df": 1014,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 207,
+        "iterations": 29,
+        "missingness_by_feature": {
+          "birth_year": 0.40778,
+          "death_year": 0.7476,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.71638,
+          "has_death_place": 0.89334,
+          "has_citizenship": 0.61984,
+          "has_occupation": 0.29844,
+          "has_given_name": 0.51286,
+          "has_language": 0.79472
+        },
+        "status": "Success",
+        "total_in_stratum": 6505428
+      }
+    },
+    "geographic": {
+      "Global North (Europe & North America)": {
+        "d2": 14902.312502950323,
+        "df": 577,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 106,
+        "iterations": 26,
+        "missingness_by_feature": {
+          "birth_year": 0.20622,
+          "death_year": 0.64626,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.48806,
+          "has_death_place": 0.77592,
+          "has_citizenship": 0.0,
+          "has_occupation": 0.08486,
+          "has_given_name": 0.2499,
+          "has_language": 0.56686
+        },
+        "status": "Success",
+        "total_in_stratum": 1303877
+      },
+      "Global South (Asia, Africa, Latin America)": {
+        "d2": 11093.78609426038,
+        "df": 594,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 110,
+        "iterations": 24,
+        "missingness_by_feature": {
+          "birth_year": 0.2625,
+          "death_year": 0.71528,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.56762,
+          "has_death_place": 0.86226,
+          "has_citizenship": 0.0,
+          "has_occupation": 0.12866,
+          "has_given_name": 0.53236,
+          "has_language": 0.61908
+        },
+        "status": "Success",
+        "total_in_stratum": 1185337
+      },
+      "Unstated / Missing Citizenship": {
+        "d2": 8852.394529150735,
+        "df": 473,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 8,
+        "n_patterns": 109,
+        "iterations": 35,
+        "missingness_by_feature": {
+          "birth_year": 0.51326,
+          "death_year": 0.79414,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.8302,
+          "has_death_place": 0.94014,
+          "has_occupation": 0.41118,
+          "has_given_name": 0.59026,
+          "has_language": 0.91986
+        },
+        "status": "Success",
+        "total_in_stratum": 4016214
+      }
+    },
+    "ethnicity": {
+      "Unstated / Missing Ethnicity": {
+        "d2": 13988.18723272481,
+        "df": 1014,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 207,
+        "iterations": 29,
+        "missingness_by_feature": {
+          "birth_year": 0.40778,
+          "death_year": 0.7476,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.71638,
+          "has_death_place": 0.89334,
+          "has_citizenship": 0.61984,
+          "has_occupation": 0.29844,
+          "has_given_name": 0.51286,
+          "has_language": 0.79472
+        },
+        "status": "Success",
+        "total_in_stratum": 6505428
+      }
+    },
+    "rural_urban_birthplace": {
+      "Documented Birthplace (P19 Stated)": {
+        "d2": 15241.269907128462,
+        "df": 639,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 118,
+        "iterations": 16,
+        "missingness_by_feature": {
+          "birth_year": 0.05562,
+          "death_year": 0.5614,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.0,
+          "has_death_place": 0.68398,
+          "has_citizenship": 0.36428,
+          "has_occupation": 0.15336,
+          "has_given_name": 0.33924,
+          "has_language": 0.61782
+        },
+        "status": "Success",
+        "total_in_stratum": 1853673
+      },
+      "Unstated / Missing Birthplace (P19 Missing)": {
+        "d2": 10363.982330549099,
+        "df": 481,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 8,
+        "n_patterns": 110,
+        "iterations": 45,
+        "missingness_by_feature": {
+          "birth_year": 0.5439,
+          "death_year": 0.82366,
+          "sitelinks_count": 0.0,
+          "has_death_place": 0.9766,
+          "has_citizenship": 0.71866,
+          "has_occupation": 0.35686,
+          "has_given_name": 0.58234,
+          "has_language": 0.8664
+        },
+        "status": "Success",
+        "total_in_stratum": 4651755
+      }
+    },
+    "linguistic": {
+      "English Spoken/Written (Q1860)": {
+        "d2": 14699.755828700943,
+        "df": 515,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 95,
+        "iterations": 40,
+        "missingness_by_feature": {
+          "birth_year": 0.343,
+          "death_year": 0.76318,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.59944,
+          "has_death_place": 0.86932,
+          "has_citizenship": 0.37662,
+          "has_occupation": 0.04456,
+          "has_given_name": 0.30402,
+          "has_language": 0.0
+        },
+        "status": "Success",
+        "total_in_stratum": 291271
+      },
+      "Non-English Major Language": {
+        "d2": 11683.36429757374,
+        "df": 616,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 112,
+        "iterations": 18,
+        "missingness_by_feature": {
+          "birth_year": 0.2051,
+          "death_year": 0.62586,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.43098,
+          "has_death_place": 0.76578,
+          "has_citizenship": 0.19932,
+          "has_occupation": 0.06266,
+          "has_given_name": 0.27344,
+          "has_language": 0.0
+        },
+        "status": "Success",
+        "total_in_stratum": 1047374
+      },
+      "Unstated / Missing Language (P1412)": {
+        "d2": 15126.223570558112,
+        "df": 527,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 8,
+        "n_patterns": 119,
+        "iterations": 32,
+        "missingness_by_feature": {
+          "birth_year": 0.45064,
+          "death_year": 0.77072,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.77808,
+          "has_death_place": 0.91952,
+          "has_citizenship": 0.71382,
+          "has_occupation": 0.35804,
+          "has_given_name": 0.5736
+        },
+        "status": "Success",
+        "total_in_stratum": 5166783
+      }
+    },
+    "occupational": {
+      "Stated Occupation (P106 Documented)": {
+        "d2": 13040.980415833268,
+        "df": 597,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 9,
+        "n_patterns": 110,
+        "iterations": 31,
+        "missingness_by_feature": {
+          "birth_year": 0.37386,
+          "death_year": 0.76908,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.65558,
+          "has_death_place": 0.8811,
+          "has_citizenship": 0.5119,
+          "has_occupation": 0.0,
+          "has_given_name": 0.46742,
+          "has_language": 0.72368
+        },
+        "status": "Success",
+        "total_in_stratum": 4573865
+      },
+      "Unstated / Missing Occupation": {
+        "d2": 11111.865572340428,
+        "df": 464,
+        "p_value": 0.0,
+        "is_mcar": false,
+        "n_samples": 50000,
+        "n_features": 8,
+        "n_patterns": 107,
+        "iterations": 24,
+        "missingness_by_feature": {
+          "birth_year": 0.4889,
+          "death_year": 0.70242,
+          "sitelinks_count": 0.0,
+          "has_birth_place": 0.85756,
+          "has_death_place": 0.92324,
+          "has_citizenship": 0.86368,
+          "has_given_name": 0.62844,
+          "has_language": 0.95876
+        },
+        "status": "Success",
+        "total_in_stratum": 1931563
+      }
+    }
+  }
+}

@@ -1,0 +1,23 @@
+[
+  {
+    "name": "Been Closer",
+    "description": "Featured subject (NER Person) in 'Bigfoot-Like Ancient Apes Might Have Been Closer to Humans Than We Rea...' (Gizmodo.com)",
+    "publisher": "Gizmodo.com",
+    "url": "https://gizmodo.com/bigfoot-like-ancient-apes-might-have-been-closer-to-humans-than-we-realize-2000801208",
+    "source_api": "News API (Gizmodo.com)"
+  },
+  {
+    "name": "Wildlife Photographer",
+    "description": "Featured subject (NER Person) in 'Butterfly\u2019s Narrow Escape Among Wildlife Photographer of the Year Fina...' (PetaPixel)",
+    "publisher": "PetaPixel",
+    "url": "https://petapixel.com/2026/08/25/butterflys-narrow-escape-among-wildlife-photographer-of-the-year-finalists/",
+    "source_api": "News API (PetaPixel)"
+  },
+  {
+    "name": "Narrow Escape",
+    "description": "Featured subject (NER Person) in 'Butterfly\u2019s Narrow Escape Among Wildlife Photographer of the Year Fina...' (PetaPixel)",
+    "publisher": "PetaPixel",
+    "url": "https://petapixel.com/2026/08/25/butterflys-narrow-escape-among-wildlife-photographer-of-the-year-finalists/",
+    "source_api": "News API (PetaPixel)"
+  }
+]
