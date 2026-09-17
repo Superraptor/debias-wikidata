@@ -232,12 +232,15 @@ def generate_all_figures() -> list[str]:
 
             # ─────────────────────────────────────────────────────────────────
             # FIGURE 3: Global Geographic Representation Disparities
+            # Regional Classification: United Nations M49 Geoscheme / UN DESA Regional Groupings
+            # Population Baseline Source: UN DESA World Population Prospects 2024 (N_world ≈ 8.05B)
             # ─────────────────────────────────────────────────────────────────
             fig, ax = plt.subplots(figsize=(9.0, 4.8))
             regions = ["Europe", "North America", "East Asia", "Latin America", "South Asia", "Sub-Saharan Africa"]
             recorded = [54.2, 22.8, 9.4, 5.1, 4.8, 3.7]
             rec_errs = [0.04, 0.03, 0.02, 0.02, 0.02, 0.01]
             world_pop = [9.3, 4.7, 20.5, 8.4, 24.8, 14.5]
+
 
             x = np.arange(len(regions))
             width = 0.36
